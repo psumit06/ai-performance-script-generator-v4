@@ -1,0 +1,30 @@
+{
+  "info": {
+    "name": "Sample API Collection"
+  },
+  "item": [
+    {
+      "name": "Login API",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer token"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"username\": \"test\", \"password\": \"test123\" }"
+        },
+        "url": {
+          "raw": "https://api.example.com/login"
+        }
+      }
+    }
+  ]
+}

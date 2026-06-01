@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JMeter Script Generator</title>
+    <script src="vendor/lucide-local.js?v=20260529-3"></script>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="glow-bg"></div>
+    <div class="app-container">
+        <div class="app-alert hidden" id="appAlert">
+            <span id="appAlertMessage"></span>
+            <button type="button" id="appAlertClose">Dismiss</button>
+        </div>
+        <!-- Header -->
+        <header class="glass-card header-bar">
+            <div class="logo-area">
+                <i data-lucide="zap" class="logo-icon animate-pulse"></i>
+                <div class="brand">
+                    <h1>JMeter Script Generator & Self-Healing Agent</h1>
+                    <span class="subtitle">JMeter Script Generator & Self-Healing Agent</span>
+                </div>
+            </div>
+            <div class="system-status">
+                <span class="status-dot online"></span>
+                <span class="status-text">AI Core Active</span>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="workspace-grid">
+            <!-- Left Side: Controls & Upload -->
+            <section class="control-panel flex flex-col gap-6">
+                <!-- File Dropzone -->
+                <div class="glass-card section-card">
+                    <h2 class="section-title"><i data-lucide="file-up"></i> Schema Ingestion</h2>
+                    <div class="dropzone" id="dropzone">
+                        <input type="file" id="fileInput" accept=".har,.json" style="display: none;">
+                        <i data-lucide="cloud-lightning" class="upload-icon"></i>
+                        <p class="dropzone-text">Drag & drop <strong>HAR Archive</strong> or <strong>Postman Collection</strong></p>
+                        <span class="dropzone-sub">or click to browse local files</span>
+                        <div class="file-badge hidden" id="fileBadge">
+                            <i data-lucide="file-json"></i>
+                            <span id="fileName">sample.har</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Load Test Parameters -->
+                <div class="glass-card section-card">
+                    <h2 class="section-title"><i data-lucide="sliders"></i> Execution Profile</h2>
+                    <div class="form-group">
+                        <label class="toggle-row" for="aiEnabled">
+                            <span><i data-lucide="sparkles"></i> AI Agent Layer</span>
+                            <input id="aiEnabled" type="checkbox" checked>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="llmProvider"><i data-lucide="brain-circuit"></i> LLM Provider</label>
+                        <select id="llmProvider" class="select-control">
+                            <option value="gemini">Gemini</option>
+                            <option value="claude">Claude</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="grok">Grok</option>
+                            <option value="groq">Groq</option>
+                            <option value="github">GitHub Models</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="llmModel"><i data-lucide="settings-2"></i> Model Override</label>
+                        <input id="llmModel" class="text-control" type="text" placeholder="Optional, e.g. gpt-4o-mini">
+                        <div class="field-hint" id="llmDefaultHint">Default provider loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="users"><i data-lucide="users"></i> Virtual Users (Threads)</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="users" min="1" max="1000" value="50" oninput="updateVal('usersVal', this.value)">
+                            <span class="val-badge" id="usersVal">50</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="rampUp"><i data-lucide="activity"></i> Ramp-Up Time (seconds)</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="rampUp" min="0" max="600" value="60" oninput="updateVal('rampUpVal', this.value)">
+                            <span class="val-badge" id="rampUpVal">60s</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="duration"><i data-lucide="clock"></i> Duration of the run ( seconds )</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="duration" min="10" max="3600" value="300" oninput="updateVal('durationVal', this.value)">
+                            <span class="val-badge" id="durationVal">300s</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="thinkTime"><i data-lucide="hourglass"></i> Base Think Time (ms)</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="thinkTime" min="0" max="10000" value="1500" step="100" oninput="updateVal('thinkTimeVal', this.value)">
+                            <span class="val-badge" id="thinkTimeVal">1500ms</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="pacing"><i data-lucide="timer"></i> Pacing (ms)</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="pacing" min="0" max="60000" value="0" step="500" oninput="updateVal('pacingVal', this.value)">
+                            <span class="val-badge" id="pacingVal">0ms</span>
+                        </div>
+                    </div>
+                    
+                    <button class="btn-primary" id="generateBtn" disabled>
+                        <span>Analyze & Generate Script</span>
+                        <i data-lucide="cpu" class="btn-icon"></i>
+                    </button>
+                    <button class="btn-secondary download-jmx-main" id="downloadBtnMain" disabled>
+                        <i data-lucide="download"></i>
+                        <span>Download JMX Script</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Right Side: Visualization Dashboard -->
+            <section class="dashboard-panel flex flex-col gap-6">
+                <!-- Stats Overview -->
+                <div class="stats-row grid grid-cols-4 gap-4">
+                    <div class="glass-card stat-card">
+                        <span class="stat-label">Dry-Run Success Rate</span>
+                        <span class="stat-value text-neon-green" id="statSuccess">--</span>
+                        <i data-lucide="shield-check" class="stat-bg-icon"></i>
+                    </div>
+                    <div class="glass-card stat-card">
+                        <span class="stat-label">Noise Reduction Ratio</span>
+                        <span class="stat-value text-neon-blue" id="statNoise">--</span>
+                        <i data-lucide="filter" class="stat-bg-icon"></i>
+                    </div>
+                    <div class="glass-card stat-card">
+                        <span class="stat-label">AI Correlations Made</span>
+                        <span class="stat-value text-neon-purple" id="statCorrelations">--</span>
+                        <i data-lucide="git-merge" class="stat-bg-icon"></i>
+                    </div>
+                    <div class="glass-card stat-card">
+                        <span class="stat-label">Self-Healing Cycles</span>
+                        <span class="stat-value text-neon-yellow" id="statHealed">--</span>
+                        <i data-lucide="activity" class="stat-bg-icon"></i>
+                    </div>
+                </div>
+
+                <!-- Tabs & Workspace -->
+                <div class="glass-card workspace-card flex flex-col flex-1">
+                    <div class="tab-header">
+                        <button class="tab-btn active" onclick="switchTab('dagTab')">
+                            <i data-lucide="network"></i> Dynamic API Flow (DAG)
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('logsTab')">
+                            <i data-lucide="terminal"></i> Self-Healing Console
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('codeTab')">
+                            <i data-lucide="file-code"></i> Generated JMX Code
+                        </button>
+                    </div>
+
+                    <!-- Tab Contents -->
+                    <div class="tab-content flex-1 flex flex-col overflow-hidden">
+                        <!-- DAG Flow Tab -->
+                        <div class="tab-pane active overflow-y-auto" id="dagTab">
+                            <div class="dag-info">
+                                <div class="legend-item"><span class="legend-color kept"></span> Kept APIs</div>
+                                <div class="legend-item"><span class="legend-color filtered"></span> Static/Noise Excluded</div>
+                                <div class="legend-item"><span class="legend-color correlation"></span> AI Extracted Token</div>
+                            </div>
+                            <div class="dag-nodes-container" id="dagNodes">
+                                <div class="empty-state">
+                                    <i data-lucide="database" class="empty-icon animate-pulse"></i>
+                                    <h3>No schema data loaded</h3>
+                                    <p>Ingest a HAR file or Postman collection to visualize the transactional execution graph.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Logs Tab -->
+                        <div class="tab-pane flex flex-col h-full bg-terminal overflow-hidden" id="logsTab">
+                            <div class="terminal-header">
+                                <span class="terminal-dot red"></span>
+                                <span class="terminal-dot yellow"></span>
+                                <span class="terminal-dot green"></span>
+                                <span class="terminal-title">self_healing_agent.py</span>
+                            </div>
+                            <div class="terminal-body flex-1 overflow-y-auto" id="terminalLogs">
+                                <p class="terminal-line system">[System] Headless JMeter execution pipeline loaded. Ready for dry-run simulation.</p>
+                            </div>
+                        </div>
+
+                        <!-- Code Preview Tab -->
+                        <div class="tab-pane flex flex-col h-full overflow-hidden" id="codeTab">
+                            <div class="code-header flex justify-between items-center px-4 py-2 border-b border-border">
+                                <span class="text-sm font-mono text-muted">generated_test_plan.jmx</span>
+                                <button class="btn-secondary btn-sm" id="downloadBtn" disabled>
+                                    <i data-lucide="download"></i> Download JMX Script
+                                </button>
+                            </div>
+                            <pre class="code-preview flex-1 overflow-auto"><code id="codeBlock" class="language-xml">Select a file and execute the script generation pipeline to view the output JMX XML code.</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="index.js?v=20260529-3"></script>
+</body>
+</html>

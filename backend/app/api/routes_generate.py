@@ -1,0 +1,208 @@
+import json
+import os
+from fastapi import (
+    APIRouter,
+    UploadFile,
+    File,
+    Query,
+    HTTPException
+)
+from app.services.parser_router import (
+    parse_api_spec
+)
+from app.services.traffic_filter import (
+    filter_traffic_with_ai
+)
+from app.services.correlation_engine import (
+    analyze_correlations
+)
+from app.services.logical_reconstructor import (
+    reconstruct_logical_flow
+)
+from app.services.self_healing import (
+    run_self_healing_loop
+)
+from app.services.llm_provider import (
+    DEFAULT_MODELS,
+    get_llm_config,
+    is_llm_available
+)
+
+router = APIRouter()
+
+@router.get("/llm-providers")
+def llm_providers():
+    active = get_llm_config()
+    return {
+        "active_provider": active["provider"],
+        "active_model": active["model"],
+        "providers": [
+            {
+                "name": name,
+                "default_model": model,
+                "configured": is_llm_available(name)
+            }
+            for name, model in DEFAULT_MODELS.items()
+        ]
+    }
+
+@router.post("/generate-from-file")
+async def generate_from_file(
+    users: int,
+    ramp_up: int,
+    duration: int,
+    think_time: int,
+    pacing: int = Query(default=0),
+    ai_enabled: bool = Query(default=True),
+    llm_provider: str | None = Query(default=None),
+    llm_model: str | None = Query(default=None),
+    file: UploadFile = File(...)
+):
+    try:
+        effective_provider = llm_provider if ai_enabled else "none"
+        effective_model = llm_model if ai_enabled else None
+
+        if ai_enabled and llm_provider and not is_llm_available(llm_provider):
+            config = get_llm_config(provider=llm_provider, model=llm_model)
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "LLM_PROVIDER_NOT_CONFIGURED",
+                    "message": (
+                        f"The selected LLM provider '{config['provider']}' is not configured properly. "
+                        "Please select a different provider or configure its API key in backend/.env."
+                    ),
+                    "provider": config["provider"],
+                    "model": config["model"]
+                }
+            )
+
+        # =====================================
+        # 1. READ FILE CONTENT
+        # =====================================
+        raw_content = await file.read()
+        raw_content = raw_content.decode("utf-8", errors="ignore")
+        print(f"File received: {file.filename}")
+
+        # =====================================
+        # 2. SCHEMA INGESTION & PARSING
+        # =====================================
+        parsed_data = parse_api_spec(raw_content)
+        all_endpoints = parsed_data["endpoints"]
+        print(f"Ingested {len(all_endpoints)} endpoints.")
+
+        # =====================================
+        # 3. AI TRAFFIC FILTERING (Noise Exclusions)
+        # =====================================
+        filtered_endpoints, exclusion_regex = filter_traffic_with_ai(
+            all_endpoints,
+            llm_provider=effective_provider,
+            llm_model=effective_model
+        )
+        print(f"Traffic Filter: Kept {len(filtered_endpoints)} of {len(all_endpoints)} endpoints.")
+
+        # =====================================
+        # 4. AI CORRELATION ENGINE (Lineage scan)
+        # =====================================
+        correlation_result = analyze_correlations(
+            filtered_endpoints,
+            llm_provider=effective_provider,
+            llm_model=effective_model
+        )
+        correlated_endpoints = correlation_result["endpoints"]
+        detected_correlations = correlation_result["correlations"]
+        print(f"Correlation Engine: Identified {len(detected_correlations)} dynamic parameter correlations.")
+
+        # =====================================
+        # 5. BROWSER TIMING & RECONSTRUCTION
+        # =====================================
+        logical_flow = reconstruct_logical_flow(
+            correlated_endpoints,
+            llm_provider=effective_provider,
+            llm_model=effective_model,
+            base_think_time=think_time
+        )
+        print(f"Logical Reconstruction: Grouped into {len(logical_flow)} transaction blocks.")
+
+        # =====================================
+        # 6. ASSEMBLE TEST PLAN
+        # =====================================
+        test_plan = {
+            "thread_group": {
+                "users": users,
+                "ramp_up": ramp_up,
+                "duration": duration,
+                "think_time": think_time,
+                "pacing": pacing
+            },
+            "flow": logical_flow,
+            "exclusion_regex": exclusion_regex
+        }
+
+        # =====================================
+        # 7. SELF-HEALING VALIDATION LOOP
+        # =====================================
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        output_dir = os.path.join(backend_dir, "output")
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, "generated_test_plan.jmx")
+        healing_result = run_self_healing_loop(
+            test_plan=test_plan,
+            original_endpoints=correlated_endpoints,
+            output_path=output_path,
+            max_retries=3,
+            llm_provider=effective_provider,
+            llm_model=effective_model
+        )
+
+        # =====================================
+        # 8. PREPARE RESPONSE DATA
+        # =====================================
+        # We return a comprehensive JSON dataset so that the premium glassmorphic
+        # dashboard can display visual DAG diagrams, self-healing thought logs, JMX preview, etc.
+        return {
+            "success": healing_result["success"],
+            "filename": file.filename,
+            "success_rate": healing_result["report"]["success_rate"],
+            "total_requests": healing_result["report"]["total_requests"],
+            "failed_requests": healing_result["report"]["failed_requests"],
+            "failures": healing_result["report"]["failures"],
+            "jmx_content": healing_result["jmx_content"],
+            "correlations": detected_correlations,
+            "healing_history": healing_result["healing_history"],
+            "exclusion_regex": exclusion_regex,
+            "ai_enabled": ai_enabled,
+            "llm_provider": effective_provider,
+            "llm_model": effective_model,
+            "execution_profile": {
+                "users": users,
+                "ramp_up": ramp_up,
+                "duration": duration,
+                "think_time": think_time,
+                "pacing": pacing
+            },
+            "flow": logical_flow,
+            "endpoints": [
+                {
+                    "name": ep.get("name"),
+                    "method": ep.get("method"),
+                    "url": ep.get("full_url"),
+                    "kept": ep.get("ai_decision", {}).get("keep", True),
+                    "reason": ep.get("ai_decision", {}).get("reason", "")
+                    ,
+                    "extractors": ep.get("extractors", [])
+                }
+                for ep in all_endpoints
+            ]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Pipeline Generation Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }

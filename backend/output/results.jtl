@@ -1,0 +1,8 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+0,0,,Non HTTP response code: java.net.MalformedURLException,Non HTTP response message: Illegal character found in host: '{',Thread Group 1-1,text,false,,875,0,1,1,null,0,0,0
+1780036289370,0,01_Authentication,,"Number of samples in transaction : 2, number of failing samples : 1",Thread Group 1-1,,false,,875,0,1,1,null,0,5811,0
+0,0,,Non HTTP response code: java.net.MalformedURLException,Non HTTP response message: Illegal character found in host: '{',Thread Group 1-1,text,false,,875,0,1,1,null,0,0,0
+0,0,,Non HTTP response code: java.net.MalformedURLException,Non HTTP response message: Illegal character found in host: '{',Thread Group 1-1,text,false,,875,0,1,1,null,0,0,0
+0,0,,Non HTTP response code: java.net.MalformedURLException,Non HTTP response message: Illegal character found in host: '{',Thread Group 1-1,text,false,,875,0,1,1,null,0,0,0
+0,0,,Non HTTP response code: java.net.MalformedURLException,Non HTTP response message: Illegal character found in host: '{',Thread Group 1-1,text,false,,875,0,1,1,null,0,0,0
+1780036295181,0,02_User CRUD with Correlation,,"Number of samples in transaction : 5, number of failing samples : 4",Thread Group 1-1,,false,,3500,0,1,1,null,0,38019,0

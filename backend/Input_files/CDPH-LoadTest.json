@@ -1,0 +1,150 @@
+{
+  "info": {
+    "_postman_id": "792a1fd5-f8c8-4324-a5a8-1f0576423fba",
+    "name": "CDPH-LoadTest Copy",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "42926237"
+  },
+  "item": [
+    {
+      "name": "ResultStoreSAPI",
+      "item": [
+        {
+          "name": "listObject-IssueReport-Stg",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "client_id",
+                "value": "37b98341d9df4831aa1743ddeb52f0d3",
+                "type": "text"
+              },
+              {
+                "key": "client_secret",
+                "value": "95CC07dea777483cB7E4a7514f5C7925",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"labResultEvent\": {\r\n    \"bucketName\": \"dgx-edap-use1-stg-cdpherror-landing-s3\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://qeag-internal-stg.qdx.com/qdx-resultstore-sapi-v1//listObject",
+              "protocol": "https",
+              "host": [
+                "qeag-internal-stg",
+                "qdx",
+                "com"
+              ],
+              "path": [
+                "qdx-resultstore-sapi-v1",
+                "",
+                "listObject"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "listObject-SpecimenReport-Stg",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "client_id",
+                "value": "37b98341d9df4831aa1743ddeb52f0d3",
+                "type": "text"
+              },
+              {
+                "key": "client_secret",
+                "value": "95CC07dea777483cB7E4a7514f5C7925",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"labResultEvent\": {\r\n    \"bucketName\": \"dgx-edap-use1-stg-cdph-landing-s3\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://qeag-internal-stg.qdx.com/qdx-resultstore-sapi-v1//listObject",
+              "protocol": "https",
+              "host": [
+                "qeag-internal-stg",
+                "qdx",
+                "com"
+              ],
+              "path": [
+                "qdx-resultstore-sapi-v1",
+                "",
+                "listObject"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "CDPH-SFTP-SAPI",
+      "item": [
+        {
+          "name": "edx-cdph-sftp-sapi-v1/specimenReceipt",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "ZVRSRiMsRmlyc3ROYW1lLExhc3ROYW1lLERPQixBZGRyZXNzLExhYkFjY2Vzc2lvbk51bWJlcixUZXN0T3JkZXJEYXRlLFNwZWNpbWVuQ29sbGVjdGVkRGF0ZS9UaW1lLFNwZWNpbWVuUmVjZWl2ZWREYXRlL1RpbWUsTGFiQ29kZSxPcmRlcmluZ1BoeXNpY2lhbklELE9yZGVyaW5nUGh5c2ljaWFuRmlyc3ROYW1lLE9yZGVyaW5nUGh5c2ljaWFuTGFzdE5hbWUsQmxvb2RDb2xsZWN0aW9uRmFjaWxpdHlOYW1lLEJsb29kQ29sbGVjdGlvbkZhY2lsaXR5UGhvbmUNCkQyMjAwNDZBNDksVEVTVFNBTVBMRUZPVVIsVEVTVFNBTVBMRUZPVVIsMTk5NDA0MDQsNCBURVNUU0FNUExFRk9VUlwsQVBUIzRcLFNBQ1JBTUVOVE9cLENBXCw5NDQ0NCxXSDA1Nzg1M1osMDgxNzIwMjIwMDAwMDEsMDgxNzIwMjIwMDAwMDEsMDgxNzIwMjIwODIxMDAsRDAyLDExNzQxLENEU1AsVVNFUixRdWVzdCBEaWFnbm9zdGljcyBOaWNob2xzIEluc3RpdHV0ZSw4NTUtNjg4LTE2ODINCkQyMjAwOTk3NDAsUEVURVIsSkFDSywxOTg3MDkxNyw1NiBTVVRPUiBEUklWRVwsTE9ORyBCRUFDSFwsTE9TIEFOR0xFU1wsQ0FcLDkxODc2LFdIMDU3NTQ0WiwwODA3MjAyMjAwMDAwMSwwODA3MjAyMjAwMDAwMSwwODA4MjAyMjAzNTYwMCxEMDIsMTY2NTUsV0lEREVSLEpPSE4sUXVlc3QgRGlhZ25vc3RpY3MgTmljaG9scyBJbnN0aXR1dGUsODU1LTY4OC0xNjgyDQpNQU5VQUwsUE9PSkEsU0lOR0gsLENBXCxDQVwsQ0FcLENBXCw5MDIzMSxXSDA1NzU0M1osMDgwNzIwMjIwMDAwMDEsMDgwNzIwMjIwMDAwMDEsMDgwODIwMjIwMzQ3MDAsRDAyLDExMTEsU0lOR0gsVEVTVCxRdWVzdCBEaWFnbm9zdGljcyBOaWNob2xzIEluc3RpdHV0ZSw4NTUtNjg4LTE2ODINCkQyMjAwOTk4MzUsVEVTVCxURVNULDE5OTAwOTA5LEFTRkFGXCxcLFNBTiBGUkFOU0lTQ09cLENBXCw1Njc4OSxXSDA1NzU0NVosMDgwNzIwMjIwMDAwMDEsMDgwNzIwMjIwMDAwMDEsMDgwODIwMjIwMzU3MDAsRDAyLDE1Nzg1LDE3MDEsREVNTyxRdWVzdCBEaWFnbm9zdGljcyBOaWNob2xzIEluc3RpdHV0ZSw4NTUtNjg4LTE2ODINCkQyMjAwNDA3NDYsSlVMWSxKVUxZIFRXRU5UWSBMQVNUTkFNRSwyMDAwMDcyMCwwNzIwIEpVTFkgVFdFTlRZIFNUUkVFVFwsXCxTQUNSQU1FTlRPXCxDQVwsOTU2MjQsV0gwNTc2MTdaLDA4MDkyMDIyMTIzNDAwLDA4MDkyMDIyMTIzNDAwLDA4MDkyMDIyMDY1MTAwLEQwMiwxMTc0MSxDRFNQLFVTRVIsUXVlc3QgRGlhZ25vc3RpY3MgTmljaG9scyBJbnN0aXR1dGUsODU1LTY4OC0xNjgyDQoxMzU3OSxGVEVTVCxMQ0RQSCwxOTg3MDEwMSw0MDAgRUdZUFQgUkRcLDQwMCBFR1lQVCBSRFwsQ0FcLENBXCxDQVEsV0gwNTc2NjZaLDA4MTAyMDIyMDAwMDAxLDA4MTAyMDIyMDAwMDAxLDA4MTAyMDIyMDM0ODAwLEQwMiw3Nzc3LFRFU1QsVEVTVCxRdWVzdCBEaWFnbm9zdGljcyBOaWNob2xzIEluc3RpdHV0ZSw4NTUtNjg4LTE2ODINCkQyMjAwOTEzNjQsRkRHREYsTUVLLDE5OTAwOTA5LERTR1NGSFwsXCxDQVwsQ0FcLDY3ODkwLFdIMDU3NjY4WiwwODEwMjAyMjAwMDAwMSwwODEwMjAyMjAwMDAwMSwwODEwMjAyMjA0MjcwMCxEMDIsMTU3ODUsMTcwMSxERU1PLFF1ZXN0IERpYWdub3N0aWNzIE5pY2hvbHMgSW5zdGl0dXRlLDg1NS02ODgtMTY4Mg0KRDIyMDA5MTM2NCxGREdERixNRUssMTk5MDA5MDksRFNHU0ZIXCxcLENBXCxDQVwsNjc4OTAsV0EwMDIxNDJaLDA4MTAyMDIyMDAwMDAxLDA4MTAyMDIyMDAwMDAxLDA4MTAyMDIyMDQxMzAwLEQwMiwxNTc4NSwxNzAxLERFTU8sUXVlc3QgRGlhZ25vc3RpY3MgTmljaG9scyBJbnN0aXR1dGUsODU1LTY4OC0xNjgyDQpNQU5VQUwsUE9PSkEsU0lHLCxDU0FcLENBXCxDQVwsQ0FcLDkwMjMxLFdIMDU3NjY1WiwwODA5MjAyMjAwMDAwMSwwODA5MjAyMjAwMDAwMSwwODEwMjAyMjAzMzIwMCxEMDIsODk4OSxURVNULFRFU1QsUXVlc3QgRGlhZ25vc3RpY3MgTmljaG9scyBJbnN0aXR1dGUsODU1LTY4OC0xNjgyDQpNQU5VQUwsUE9PSkEsU0lOR0gsLENBXCxDQVwsQ0FcLENBXCw5MDIzMSxXSDA1NzYzM1osMDgwOTIwMjIwMDAwMDEsMDgwOTIwMjIwMDAwMDEsMDgxMDIwMjIwMTA2MDAsRDAyLDY2NjYsWUVTVCxURVNULFF1ZXN0IERpYWdub3N0aWNzIE5pY2hvbHMgSW5zdGl0dXRlLDg1NS02ODgtMTY4Mg0KRDIyMDA5MTM2NCxGREdERixNRUssMTk5MDA5MDksRFNHU0ZIXCxcLENBXCxDQVwsNjc4OTAsV0gwNTc2NjlaLDA4MTAyMDIyMDAwMDAxLDA4MTAyMDIyMDAwMDAxLDA4MTAyMDIyMDQyODAwLEQwMiwxNTc4NSwxNzAxLERFTU8sUXVlc3QgRGlhZ25vc3RpY3MgTmljaG9scyBJbnN0aXR1dGUsODU1LTY4OC0xNjgyDQpEMjIwMDkxMzY0LEZER0RGLE1FSywxOTkwMDkwOSxEU0dTRkhcLFwsQ0FcLENBXCw2Nzg5MCxXSDA1NzY2N1osMDgxMDIwMjIwMDAwMDEsMDgxMDIwMjIwMDAwMDEsMDgxMDIwMjIwNDI2MDAsRDAyLDE1Nzg1LDE3MDEsREVNTyxRdWVzdCBEaWFnbm9zdGljcyBOaWNob2xzIEluc3RpdHV0ZSw4NTUtNjg4LTE2ODINCkQyMjAwOUY1NTUsU0FNQU5USEEsV0lMTElBTVMsMTk5NTA1MDMsNTExNSBXSUxTSElSRSBCTFZEXCxcLExPUyBBTkdFTEVTXCxDQVwsOTAwMzYsV0gwNTc3MjhaLDA4MTEyMDIyMTIzNDAwLDA4MTEyMDIyMTIzNDAwLDA4MTIyMDIyMDYxMjAwLEQwMiwxMDU3NyxKT04sR1JFRU4sUXVlc3QgRGlhZ25vc3RpY3MgTmljaG9scyBJbnN0aXR1dGUsODU1LTY4OC0xNjgyDQo="
+            },
+            "url": {
+              "raw": "https://qeag-internal-stg.qdx.com/qdx-cdph-sftp-sapi-v1/specimenReceipt",
+              "protocol": "https",
+              "host": [
+                "qeag-internal-stg",
+                "qdx",
+                "com"
+              ],
+              "path": [
+                "qdx-cdph-sftp-sapi-v1",
+                "specimenReceipt"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "edx-cdph-sftp-sapi/filesTransfer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://feag-internal-stg.edx.com/edx-cdph-sftp-sapi-v1/filesTransfer",
+              "protocol": "https",
+              "host": [
+                "feag-internal-stg",
+                "edx",
+                "com"
+              ],
+              "path": [
+                "edx-cdph-sftp-sapi-v1",
+                "filesTransfer"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
