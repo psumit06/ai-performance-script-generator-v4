@@ -1,0 +1,45 @@
+Based on this project, the normal AI-enabled generation path uses:
+
+1 LLM call for traffic filtering: traffic_filter.py (line 6)
+0 to many small LLM calls for correlation extractor refinement: correlation_engine.py (line 342)
+1 LLM call for transaction grouping: logical_reconstructor.py (line 7)
+Optional self-healing calls, up to 3 retries: self_healing.py (line 10)
+Your GitHub Models default is currently openai/gpt-4o-mini: llm_provider.py (line 43).
+
+Average Token Estimate
+For your included sample files, assuming no failed dry-run self-healing:
+
+File	Endpoints	Approx tokens/request run
+sample_postman.json	1	~900 tokens
+CDPH-LoadTest.json	4	~1,400 tokens
+sample_postmanadvanced.json	10	~2,200 tokens
+For real enterprise usage, I’d estimate:
+
+Capture size	Likely total tokens
+Small, 5-10 endpoints	~1.5k-3k
+Medium, 25-50 endpoints	~5k-12k
+Large HAR, 100+ endpoints	~15k-40k
+With self-healing failures	add ~2k-8k per retry
+Model Recommendation
+For minimum cost with acceptable output, use OpenAI GPT-4o mini on GitHub Models first.
+
+GitHub’s current pricing table lists:
+
+OpenAI GPT-4o mini: $0.15 / 1M input, $0.60 / 1M output
+OpenAI GPT-4.1-mini: $0.40 / 1M input, $1.60 / 1M output
+OpenAI GPT-4.1: $2.00 / 1M input, $8.00 / 1M output
+Source: GitHub Models costs. GitHub also explains that billing uses token units and model multipliers, not just raw token count: GitHub Models billing.
+
+My practical recommendation:
+
+Default production model: openai/gpt-4o-mini
+Fallback/escalation model: openai/gpt-4.1-mini
+Avoid for normal runs: openai/gpt-4.1, unless quality failures are frequent
+For your current app, gpt-4o-mini should usually be enough because the model is only classifying traffic, grouping endpoints, and producing small JSON decisions. The deterministic code builds the JMX, which keeps the model from doing the expensive, error-prone part. Use gpt-4.1-mini only for self-healing or difficult correlation cases if gpt-4o-mini gives weak repairs.
+
+Cost-wise, your sample runs on gpt-4o-mini are roughly fractions of a cent: around $0.0002-$0.0008 per generated script before self-healing. Even a 50-endpoint enterprise capture would likely stay around a few thousandths of a dollar per run, unless retries and long HAR response previews are involved.
+
+4:18 PM
+
+
+
