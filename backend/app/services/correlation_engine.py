@@ -192,10 +192,13 @@ def replace_token_in_request(request, token_value, var_name):
     """
     Helper to replace hardcoded values in downstream request elements.
     """
+    if not token_value:
+        return
+
     jmeter_expr = f"${{{var_name}}}"
-    
+
     # 1. URL
-    if token_value in request.get("full_url", ""):
+    if token_value in (request.get("full_url") or ""):
         request["full_url"] = request["full_url"].replace(token_value, jmeter_expr)
         # Re-parse URL parts
         parsed = urlparse(request["full_url"])
@@ -205,28 +208,33 @@ def replace_token_in_request(request, token_value, var_name):
         request["path"] = parsed.path or "/"
 
     # 2. Headers
-    for h in request.get("headers", []):
-        if token_value in h.get("value", ""):
-            h["value"] = h["value"].replace(token_value, jmeter_expr)
+    for h in request.get("headers") or []:
+        val = h.get("value") or ""
+        if token_value in val:
+            h["value"] = val.replace(token_value, jmeter_expr)
 
     # 3. Query Params
-    for q in request.get("query_params", []):
-        if token_value in q.get("value", ""):
-            q["value"] = q["value"].replace(token_value, jmeter_expr)
+    for q in request.get("query_params") or []:
+        val = q.get("value") or ""
+        if token_value in val:
+            q["value"] = val.replace(token_value, jmeter_expr)
 
     # 4. Body
-    body_mode = request.get("body_mode", "")
+    body_mode = request.get("body_mode") or ""
     if body_mode == "raw":
-        if token_value in request.get("raw_body", ""):
-            request["raw_body"] = request["raw_body"].replace(token_value, jmeter_expr)
+        raw = request.get("raw_body") or ""
+        if token_value in raw:
+            request["raw_body"] = raw.replace(token_value, jmeter_expr)
     elif body_mode == "urlencoded":
-        for param in request.get("urlencoded", []):
-            if token_value in param.get("value", ""):
-                param["value"] = param["value"].replace(token_value, jmeter_expr)
+        for param in request.get("urlencoded") or []:
+            val = param.get("value") or ""
+            if token_value in val:
+                param["value"] = val.replace(token_value, jmeter_expr)
     elif body_mode == "formdata":
-        for param in request.get("form_data", []):
-            if token_value in param.get("value", ""):
-                param["value"] = param["value"].replace(token_value, jmeter_expr)
+        for param in request.get("form_data") or []:
+            val = param.get("value") or ""
+            if token_value in val:
+                param["value"] = val.replace(token_value, jmeter_expr)
 
 def generate_extractor_config(upstream_url, upstream_method, upstream_mime, source_location, snippet, token_value, token_key, llm_provider=None, llm_model=None):
     deterministic_config = generate_extractor_deterministically(upstream_mime, source_location, snippet, token_value, token_key)

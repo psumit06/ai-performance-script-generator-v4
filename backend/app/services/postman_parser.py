@@ -9,8 +9,10 @@ from app.services.normalized_schema import (
 )
 
 def convert_vars(text):
+    if text is None:
+        return ""
     if not isinstance(text, str):
-        return text
+        return str(text)
     # Convert {{variable}} to ${variable}
     return re.sub(r'\{\{([^}]+)\}\}', r'${\1}', text)
 
@@ -30,9 +32,9 @@ def process_request(item, endpoints, folder_path=None):
     # URL
     raw_url = request.get("url", {})
     if isinstance(raw_url, dict):
-        full_url = raw_url.get("raw", "")
+        full_url = raw_url.get("raw") or ""
     else:
-        full_url = str(raw_url)
+        full_url = str(raw_url) if raw_url else ""
 
     # Convert Postman variable syntax to JMeter syntax in URL
     full_url = convert_vars(full_url)
@@ -92,8 +94,8 @@ def process_request(item, endpoints, folder_path=None):
         # Skip disabled headers
         if header.get("disabled", False):
             continue
-        key = convert_vars(header.get("key", ""))
-        value = convert_vars(header.get("value", ""))
+        key = convert_vars(header.get("key") or "")
+        value = convert_vars(header.get("value") or "")
         normalized_headers.append({
             "key": key,
             "value": value
@@ -111,10 +113,10 @@ def process_request(item, endpoints, folder_path=None):
 
     # RAW
     if body_mode == "raw":
-        endpoint["raw_body"] = convert_vars(body.get("raw", ""))
+        endpoint["raw_body"] = convert_vars(body.get("raw") or "")
     # FORM DATA
     elif body_mode == "formdata":
-        form_data = body.get("formdata", [])
+        form_data = body.get("formdata") or []
         normal_fields = []
         multipart_files = []
         for form_item in form_data:
@@ -123,26 +125,26 @@ def process_request(item, endpoints, folder_path=None):
             item_type = form_item.get("type", "text")
             if item_type == "file":
                 multipart_files.append({
-                    "key": convert_vars(form_item.get("key", "")),
-                    "src": convert_vars(form_item.get("src", ""))
+                    "key": convert_vars(form_item.get("key") or ""),
+                    "src": convert_vars(form_item.get("src") or "")
                 })
             else:
                 normal_fields.append({
-                    "key": convert_vars(form_item.get("key", "")),
-                    "value": convert_vars(form_item.get("value", ""))
+                    "key": convert_vars(form_item.get("key") or ""),
+                    "value": convert_vars(form_item.get("value") or "")
                 })
         endpoint["form_data"] = normal_fields
         endpoint["multipart_files"] = multipart_files
     # URLENCODED
     elif body_mode == "urlencoded":
-        urlencoded = body.get("urlencoded", [])
+        urlencoded = body.get("urlencoded") or []
         normal_fields = []
         for url_item in urlencoded:
             if url_item.get("disabled", False):
                 continue
             normal_fields.append({
-                "key": convert_vars(url_item.get("key", "")),
-                "value": convert_vars(url_item.get("value", ""))
+                "key": convert_vars(url_item.get("key") or ""),
+                "value": convert_vars(url_item.get("value") or "")
             })
         endpoint["urlencoded"] = normal_fields
     # GRAPHQL

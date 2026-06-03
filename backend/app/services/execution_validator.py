@@ -44,6 +44,7 @@ def run_jmeter(jmx_path):
     # We run 1 loop, 1 user using the JMX script
     timeout_seconds = int(os.getenv("JMETER_TIMEOUT_SECONDS", "60"))
     try:
+        print(f"#####Running JMeter dry-run: {jmeter_path} -n -t {jmx_path} -l {jtl_path} -j {log_path}")
         result = subprocess.run(
             [jmeter_path, "-n", "-t", jmx_path, "-l", jtl_path, "-j", log_path],
             capture_output=True,
