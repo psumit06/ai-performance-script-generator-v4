@@ -13,6 +13,28 @@ from app.services.http_argument_builder import (
     build_http_argument
 )
 
+def split_variable_host_path(host, path, full_url):
+    """
+    Keeps JMeter variable hosts in the server-name field instead of the path.
+    Example: ${c_host}/booking -> domain=${c_host}, path=/booking
+    """
+    candidate = path or full_url or ""
+    if host or not candidate.startswith("${"):
+        return host, path
+
+    closing = candidate.find("}")
+    if closing == -1:
+        return host, path
+
+    variable_host = candidate[:closing + 1]
+    suffix = candidate[closing + 1:] or "/"
+    if suffix.startswith("?"):
+        suffix = "/" + suffix
+    elif not suffix.startswith("/"):
+        suffix = "/" + suffix
+
+    return variable_host, suffix
+
 def render_extractor(ext):
     """
     Renders the exact JMeter Post-Processor element depending on type.
@@ -111,6 +133,8 @@ def render_sampler(request):
 
     if not host and request.get("full_url"):
         path = request.get("full_url")
+
+    host, path = split_variable_host_path(host, path, request.get("full_url", ""))
     
     xml = f"""
 <HTTPSamplerProxy guiclass="HttpTestSampleGui"
@@ -261,6 +285,61 @@ def render_think_time_action(delay_ms):
 def render_pacing_action(delay_ms):
     return render_flow_control_action("Pacing", delay_ms)
 
+def render_result_collector(name, guiclass):
+    safe_name = escape_xml(name)
+    return f"""
+<ResultCollector guiclass="{guiclass}"
+testclass="ResultCollector"
+testname="{safe_name}"
+enabled="false">
+
+<boolProp name="ResultCollector.error_logging">false</boolProp>
+
+<objProp>
+<name>saveConfig</name>
+<value class="SampleSaveConfiguration">
+<time>true</time>
+<latency>true</latency>
+<timestamp>true</timestamp>
+<success>true</success>
+<label>true</label>
+<code>true</code>
+<message>true</message>
+<threadName>true</threadName>
+<dataType>true</dataType>
+<encoding>false</encoding>
+<assertions>true</assertions>
+<subresults>true</subresults>
+<responseData>false</responseData>
+<samplerData>false</samplerData>
+<xml>false</xml>
+<fieldNames>true</fieldNames>
+<responseHeaders>false</responseHeaders>
+<requestHeaders>false</requestHeaders>
+<responseDataOnError>false</responseDataOnError>
+<saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+<assertionsResultsToSave>0</assertionsResultsToSave>
+<bytes>true</bytes>
+<sentBytes>true</sentBytes>
+<url>true</url>
+<threadCounts>true</threadCounts>
+<idleTime>true</idleTime>
+<connectTime>true</connectTime>
+</value>
+</objProp>
+
+<stringProp name="filename"></stringProp>
+
+</ResultCollector>
+<hashTree/>
+"""
+
+def render_disabled_listeners():
+    return (
+        render_result_collector("View Results Tree", "ViewResultsFullVisualizer")
+        + render_result_collector("Aggregate Report", "StatVisualizer")
+    )
+
 def build_jmx(test_plan):
     users = test_plan["thread_group"]["users"]
     ramp_up = test_plan["thread_group"]["ramp_up"]
@@ -367,6 +446,9 @@ enabled="true">
 
         # Close Transaction Controller Hash Tree
         xml += "</hashTree>\n"
+
+    # Disabled debug/report listeners are included for local inspection only.
+    xml += render_disabled_listeners()
 
     # Close Thread Group
     xml += "</hashTree>\n"

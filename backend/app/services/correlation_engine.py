@@ -15,27 +15,31 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
     if not endpoints:
         return {"endpoints": [], "correlations": []}
 
-    correlations = []
+    correlations = infer_postman_variable_correlations(endpoints)
     
     # Track which values we've already correlated to avoid redundant work
     correlated_values = {}
 
     # Define simple entropy checker (length > 10, alphanumeric, typical of tokens)
     token_pattern = re.compile(r"^[a-zA-Z0-9_\-\.\=\+]{10,2048}$")
-    
+    # Matches JMeter/Postman variable expressions like ${host} or ${c_token}
+    jmeter_var_pattern = re.compile(r"\$\{[^}]+\}")
+
     # 1. Deterministic Scan & Trace
     for i in range(len(endpoints)):
         downstream_ep = endpoints[i]
-        
+
         # Scrape candidate values from headers, query params, and body
         candidates = []
-        
+
         # A. Auth headers
         for h in downstream_ep.get("headers", []):
             val = h.get("value", "")
+            if jmeter_var_pattern.search(val):
+                continue
             if h.get("key", "").lower() == "authorization" and "bearer " in val.lower():
                 token_val = val.split("Bearer ")[1].strip()
-                if token_val:
+                if token_val and not jmeter_var_pattern.search(token_val):
                     candidates.append(("header", h.get("key"), token_val))
             elif h.get("key", "").lower() in ["x-csrf-token", "x-xsrf-token", "csrf-token", "xsrf-token", "cookie"]:
                 # For cookie, let's try to extract specific cookie values
@@ -46,31 +50,32 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
                             c_name, c_val = c.split("=", 1)
                             c_name = c_name.strip()
                             c_val = c_val.strip()
-                            if len(c_val) > 8:
+                            if len(c_val) > 8 and not jmeter_var_pattern.search(c_val):
                                 candidates.append(("cookie", c_name, c_val))
                 else:
                     candidates.append(("header", h.get("key"), val))
-                    
+
         # B. Query params
         for q in downstream_ep.get("query_params", []):
             val = q.get("value", "")
-            if len(val) > 8 and token_pattern.match(val):
+            if len(val) > 8 and token_pattern.match(val) and not jmeter_var_pattern.search(val):
                 candidates.append(("query", q.get("key"), val))
-                
+
         # C. Body params
         body_mode = downstream_ep.get("body_mode", "")
         if body_mode == "raw":
             body_text = downstream_ep.get("raw_body", "")
-            candidates.extend(extract_token_candidates_from_text(body_text, "body_json"))
+            if not jmeter_var_pattern.search(body_text or ""):
+                candidates.extend(extract_token_candidates_from_text(body_text, "body_json"))
         elif body_mode == "urlencoded":
             for param in downstream_ep.get("urlencoded", []):
                 val = param.get("value", "")
-                if len(val) > 8 and token_pattern.match(val):
+                if len(val) > 8 and token_pattern.match(val) and not jmeter_var_pattern.search(val):
                     candidates.append(("urlencoded", param.get("key"), val))
         elif body_mode == "formdata":
             for param in downstream_ep.get("form_data", []):
                 val = param.get("value", "")
-                if len(val) > 8 and token_pattern.match(val):
+                if len(val) > 8 and token_pattern.match(val) and not jmeter_var_pattern.search(val):
                     candidates.append(("formdata", param.get("key"), val))
 
         # Trace candidates upstream (preceding requests 0 to i-1)
@@ -158,6 +163,99 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
     }
     return endpoints_meta
 
+def infer_postman_variable_correlations(endpoints):
+    correlations = []
+    variable_targets = collect_jmeter_variable_targets(endpoints)
+
+    if "token" not in variable_targets:
+        return correlations
+
+    source_index = find_token_source_endpoint(endpoints)
+    if source_index is None:
+        return correlations
+
+    source_ep = endpoints[source_index]
+    ensure_extractor(source_ep, {
+        "type": "json_extractor",
+        "var_name": "token",
+        "json_path": "$.token",
+        "left_boundary": None,
+        "right_boundary": None,
+        "regex": None,
+        "header_name": None
+    })
+    replace_hardcoded_token_placeholders(endpoints, "token")
+
+    for target_index in variable_targets["token"]:
+        if target_index == source_index:
+            continue
+        target_ep = endpoints[target_index]
+        correlations.append({
+            "token_name": "token",
+            "token_val_preview": "${token}",
+            "source_index": source_index,
+            "source_url": source_ep.get("full_url", ""),
+            "target_index": target_index,
+            "target_url": target_ep.get("full_url", ""),
+            "var_name": "token",
+            "extractor_type": "json_extractor"
+        })
+
+    return correlations
+
+def collect_jmeter_variable_targets(endpoints):
+    variable_targets = {}
+    pattern = re.compile(r"\$\{([^}]+)\}")
+
+    for idx, ep in enumerate(endpoints):
+        values = []
+        values.extend((h.get("value") or "") for h in ep.get("headers", []))
+        values.extend((q.get("value") or "") for q in ep.get("query_params", []))
+        values.append(ep.get("raw_body") or "")
+        values.extend((p.get("value") or "") for p in ep.get("urlencoded", []))
+        values.extend((p.get("value") or "") for p in ep.get("form_data", []))
+
+        for value in values:
+            for match in pattern.finditer(value):
+                variable_targets.setdefault(match.group(1), set()).add(idx)
+
+    return variable_targets
+
+def find_token_source_endpoint(endpoints):
+    for idx, ep in enumerate(endpoints):
+        name = (ep.get("name") or "").lower()
+        path = (ep.get("path") or ep.get("full_url") or "").lower()
+        method = (ep.get("method") or "").upper()
+        if method == "POST" and "auth" in path and ("login" in path or "token" in name or "createtoken" in name.replace(" ", "")):
+            return idx
+    return None
+
+def ensure_extractor(endpoint, extractor):
+    existing = endpoint.setdefault("extractors", [])
+    if any(item.get("var_name") == extractor["var_name"] for item in existing):
+        return
+    existing.append(extractor)
+
+def replace_hardcoded_token_placeholders(endpoints, variable_name):
+    replacement = f"${{{variable_name}}}"
+    for ep in endpoints:
+        if ep.get("raw_body"):
+            ep["raw_body"] = replace_json_string_field(ep["raw_body"], "token", replacement)
+        for param in ep.get("urlencoded", []):
+            if (param.get("key") or "").lower() == "token":
+                param["value"] = replacement
+        for param in ep.get("form_data", []):
+            if (param.get("key") or "").lower() == "token":
+                param["value"] = replacement
+
+def replace_json_string_field(text, field_name, replacement):
+    return re.sub(
+        rf'("{re.escape(field_name)}"\s*:\s*")([^"]*)(")',
+        rf'\1{replacement}\3',
+        text,
+        flags=re.IGNORECASE
+    )
+
 def extract_token_candidates_from_text(text, source_type):
     if not text:
         return []
@@ -199,42 +297,78 @@ def replace_token_in_request(request, token_value, var_name):
 
     # 1. URL
     if token_value in (request.get("full_url") or ""):
-        request["full_url"] = request["full_url"].replace(token_value, jmeter_expr)
-        # Re-parse URL parts
+        request["full_url"] = replace_outside_jmeter_vars(request["full_url"], token_value, jmeter_expr)
+        for field in ("protocol", "host", "port", "path"):
+            value = request.get(field) or ""
+            if token_value in value:
+                request[field] = replace_outside_jmeter_vars(value, token_value, jmeter_expr)
+
+        # Re-parse URL parts only when urlparse can identify a real hostname.
+        # Variable hosts such as ${c_host}/booking otherwise become path-only URLs.
         parsed = urlparse(request["full_url"])
-        request["protocol"] = parsed.scheme or ""
-        request["host"] = parsed.hostname or ""
-        request["port"] = str(parsed.port or "")
-        request["path"] = parsed.path or "/"
+        if parsed.hostname:
+            request["protocol"] = parsed.scheme or ""
+            request["host"] = parsed.hostname or ""
+            request["port"] = str(parsed.port or "")
+            request["path"] = parsed.path or "/"
+        elif not request.get("host"):
+            split_variable_host_url(request)
 
     # 2. Headers
     for h in request.get("headers") or []:
         val = h.get("value") or ""
         if token_value in val:
-            h["value"] = val.replace(token_value, jmeter_expr)
+            h["value"] = replace_outside_jmeter_vars(val, token_value, jmeter_expr)
 
     # 3. Query Params
     for q in request.get("query_params") or []:
         val = q.get("value") or ""
         if token_value in val:
-            q["value"] = val.replace(token_value, jmeter_expr)
+            q["value"] = replace_outside_jmeter_vars(val, token_value, jmeter_expr)
 
     # 4. Body
     body_mode = request.get("body_mode") or ""
     if body_mode == "raw":
         raw = request.get("raw_body") or ""
         if token_value in raw:
-            request["raw_body"] = raw.replace(token_value, jmeter_expr)
+            request["raw_body"] = replace_outside_jmeter_vars(raw, token_value, jmeter_expr)
     elif body_mode == "urlencoded":
         for param in request.get("urlencoded") or []:
             val = param.get("value") or ""
             if token_value in val:
-                param["value"] = val.replace(token_value, jmeter_expr)
+                param["value"] = replace_outside_jmeter_vars(val, token_value, jmeter_expr)
     elif body_mode == "formdata":
         for param in request.get("form_data") or []:
             val = param.get("value") or ""
             if token_value in val:
-                param["value"] = val.replace(token_value, jmeter_expr)
+                param["value"] = replace_outside_jmeter_vars(val, token_value, jmeter_expr)
+
+def replace_outside_jmeter_vars(text, token_value, replacement):
+    if not text or not token_value:
+        return text
+
+    pieces = re.split(r"(\$\{[^}]+\})", text)
+    for idx, piece in enumerate(pieces):
+        if not piece.startswith("${"):
+            pieces[idx] = piece.replace(token_value, replacement)
+    return "".join(pieces)
+
+def split_variable_host_url(request):
+    full_url = request.get("full_url") or ""
+    if not full_url.startswith("${"):
+        return
+
+    closing = full_url.find("}")
+    if closing == -1:
+        return
+
+    request["host"] = full_url[:closing + 1]
+    suffix = full_url[closing + 1:] or "/"
+    if suffix.startswith("?"):
+        suffix = "/" + suffix
+    elif not suffix.startswith("/"):
+        suffix = "/" + suffix
+    request["path"] = suffix
 
 def generate_extractor_config(upstream_url, upstream_method, upstream_mime, source_location, snippet, token_value, token_key, llm_provider=None, llm_model=None):
     deterministic_config = generate_extractor_deterministically(upstream_mime, source_location, snippet, token_value, token_key)

@@ -16,10 +16,39 @@ def convert_vars(text):
     # Convert {{variable}} to ${variable}
     return re.sub(r'\{\{([^}]+)\}\}', r'${\1}', text)
 
-def process_request(item, endpoints, folder_path=None):
+def collection_variables(data):
+    variables = {}
+    for item in data.get("variable", []) or []:
+        key = item.get("key")
+        if key:
+            variables[key] = item.get("value", "")
+    return variables
+
+def variable_name_from_postman_value(value):
+    if not isinstance(value, str):
+        return ""
+    match = re.fullmatch(r"\{\{([^}]+)\}\}", value.strip())
+    return match.group(1) if match else ""
+
+def resolve_protocol_host(postman_protocol, postman_host, variables):
+    protocol = convert_vars(postman_protocol) if postman_protocol else ""
+    host = convert_vars(".".join(postman_host) if isinstance(postman_host, list) else str(postman_host))
+
+    host_parts = postman_host if isinstance(postman_host, list) else [str(postman_host)]
+    if len(host_parts) == 1:
+        variable_name = variable_name_from_postman_value(host_parts[0])
+        variable_value = variables.get(variable_name, "")
+        parsed_variable = urlparse(variable_value)
+        if parsed_variable.scheme and parsed_variable.hostname:
+            return parsed_variable.scheme, parsed_variable.hostname, str(parsed_variable.port or "")
+
+    return protocol or "https", host, ""
+
+def process_request(item, endpoints, folder_path=None, variables=None):
     request = item.get("request", {})
     endpoint = create_endpoint_schema()
     folder_path = folder_path or []
+    variables = variables or {}
     endpoint["source_index"] = len(endpoints)
     endpoint["transaction_hint"] = " / ".join(folder_path)
 
@@ -40,28 +69,30 @@ def process_request(item, endpoints, folder_path=None):
     full_url = convert_vars(full_url)
     endpoint["full_url"] = full_url
 
+    # If Postman has structured URL components, use them directly
+    # (urlparse fails on variable expressions like ${host}/booking)
     parsed = urlparse(full_url)
-    endpoint["protocol"] = parsed.scheme or ""
-    endpoint["host"] = parsed.hostname or ""
-    endpoint["port"] = str(parsed.port or "")
-    endpoint["path"] = parsed.path or "/"
+    if isinstance(raw_url, dict) and raw_url.get("host"):
+        postman_host = raw_url.get("host")
+        postman_path = raw_url.get("path")
+        postman_protocol = raw_url.get("protocol")
 
-    if isinstance(raw_url, dict):
-        protocol = raw_url.get("protocol")
-        host = raw_url.get("host")
-        path = raw_url.get("path")
-        if not endpoint["protocol"] and protocol:
-            endpoint["protocol"] = convert_vars(protocol)
-        if not endpoint["host"] and host:
-            endpoint["host"] = convert_vars(".".join(host) if isinstance(host, list) else str(host))
-        if (not parsed.path or parsed.path == "/") and path:
-            path_value = "/".join(path) if isinstance(path, list) else str(path)
+        endpoint["protocol"], endpoint["host"], endpoint["port"] = resolve_protocol_host(
+            postman_protocol,
+            postman_host,
+            variables
+        )
+        if postman_path:
+            path_value = "/".join(postman_path) if isinstance(postman_path, list) else str(postman_path)
             endpoint["path"] = "/" + convert_vars(path_value).lstrip("/")
-
-    # If the URL had variables and urlparse failed to separate them nicely,
-    # let's try a heuristic: if protocol is empty but full_url starts with ${,
-    # we can try to keep full_url as path or keep it intact.
-    # JMeter's HTTP Sampler handles a full URL path like ${base_url}/path perfectly if domain/protocol are empty!
+        else:
+            endpoint["path"] = "/"
+    else:
+        # Fallback to urlparse for non-variable URLs
+        endpoint["protocol"] = parsed.scheme or ""
+        endpoint["host"] = parsed.hostname or ""
+        endpoint["port"] = str(parsed.port or "")
+        endpoint["path"] = parsed.path or "/"
 
     # Query Params
     query_params = []
@@ -166,21 +197,22 @@ def process_request(item, endpoints, folder_path=None):
 
     endpoints.append(endpoint)
 
-def process_items(items, endpoints, folder_path=None):
+def process_items(items, endpoints, folder_path=None, variables=None):
     folder_path = folder_path or []
+    variables = variables or {}
     for item in items:
         # FOLDER DETECTED
         if "item" in item:
-            process_items(item["item"], endpoints, folder_path + [convert_vars(item.get("name", "Folder"))])
+            process_items(item["item"], endpoints, folder_path + [convert_vars(item.get("name", "Folder"))], variables)
         # ACTUAL REQUEST
         elif "request" in item:
-            process_request(item, endpoints, folder_path)
+            process_request(item, endpoints, folder_path, variables)
 
 def parse_postman_collection(content):
     data = json.loads(content)
     endpoints = []
     items = data.get("item", [])
-    process_items(items, endpoints)
+    process_items(items, endpoints, variables=collection_variables(data))
     return {
         "type": "postman",
         "endpoints": endpoints

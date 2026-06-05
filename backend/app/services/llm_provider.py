@@ -5,7 +5,7 @@ from pathlib import Path
 try:
     from dotenv import load_dotenv
 except Exception:
-    def load_dotenv():
+    def load_dotenv(*args, **kwargs):
         return False
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
