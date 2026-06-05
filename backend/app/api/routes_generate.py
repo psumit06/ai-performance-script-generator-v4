@@ -167,6 +167,17 @@ async def generate_from_file(
             "total_requests": healing_result["report"]["total_requests"],
             "failed_requests": healing_result["report"]["failed_requests"],
             "failures": healing_result["report"]["failures"],
+            "validation": {
+                "valid": healing_result["report"].get("valid", False),
+                "xml_validation_passed": healing_result["report"].get("xml_validation_passed", False),
+                "jmeter_executed": healing_result["report"].get("jmeter_executed", False),
+                "dry_run_skipped": healing_result["report"].get("dry_run_skipped", False),
+                "skip_reason": healing_result["report"].get("skip_reason", ""),
+                "jmeter_command": healing_result["report"].get("jmeter_command", ""),
+                "jtl_path": healing_result["report"].get("jtl_path", ""),
+                "log_path": healing_result["report"].get("log_path", ""),
+                "log_errors": healing_result["report"].get("log_errors", [])
+            },
             "jmx_content": healing_result["jmx_content"],
             "correlations": detected_correlations,
             "healing_history": healing_result["healing_history"],
