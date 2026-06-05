@@ -328,12 +328,31 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
         // 3. Log Self-Healing Logs
         logTerminal(`[Dry Run Validation] Launching headless JMeter dry run iteration...`, 'run');
+        const validation = data.validation || {};
+
+        if (validation.xml_validation_passed) {
+            logTerminal(`[XML Validation] JMX XML structure validation passed.`, 'success');
+        }
+
+        if (validation.dry_run_skipped) {
+            logTerminal(`[Dry Run Validation] JMeter execution was skipped: ${validation.skip_reason || 'No skip reason provided.'}`, 'error');
+            logTerminal(`[Dry Run Validation] Configure JMETER_BIN on the backend to run sampler-level validation.`, 'highlight');
+        } else if (validation.jmeter_executed) {
+            logTerminal(`[Dry Run Validation] JMeter executed validation JMX.`, 'run');
+            if (validation.jtl_path) {
+                logTerminal(`[Dry Run Validation] JTL results: ${validation.jtl_path}`, 'system');
+            }
+            if (validation.log_path) {
+                logTerminal(`[Dry Run Validation] JMeter log: ${validation.log_path}`, 'system');
+            }
+        }
         
-        if (data.healing_history.length === 0) {
-            logTerminal(`[Dry Run Validation] Iteration 1: 100% success rate. Script clean.`, 'success');
+        if (data.healing_history.length === 0 && validation.jmeter_executed) {
+            logTerminal(`[Dry Run Validation] Iteration 1: ${data.success_rate}% success rate. Script clean.`, 'success');
         } else {
             data.healing_history.forEach(log => {
-                logTerminal(`[Dry Run Validation] Iteration ${log.iteration}: success_rate=${data.success_rate}%. Errors detected!`, 'error');
+                const rateText = data.success_rate === null || data.success_rate === undefined ? 'not available' : `${data.success_rate}%`;
+                logTerminal(`[Dry Run Validation] Iteration ${log.iteration}: success_rate=${rateText}. Errors detected!`, 'error');
                 log.failures.forEach(f => {
                     logTerminal(`   -> Fail: ${f.sampler_label} returned [${f.response_code} ${f.response_message}]`, 'error');
                 });
@@ -349,7 +368,9 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         }
 
         // 4. Update Stats Dashboard
-        document.getElementById('statSuccess').textContent = data.success_rate + '%';
+        document.getElementById('statSuccess').textContent = validation.dry_run_skipped
+            ? 'Skipped'
+            : (data.success_rate === null || data.success_rate === undefined ? '--' : data.success_rate + '%');
         document.getElementById('statNoise').textContent = noiseRatio + '%';
         document.getElementById('statCorrelations').textContent = data.correlations.length;
         document.getElementById('statHealed').textContent = data.healing_history.length;
