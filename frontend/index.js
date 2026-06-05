@@ -183,7 +183,7 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
 
-    const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => btn.getAttribute('onclick').includes(tabId));
+    const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => (btn.getAttribute('onclick') || '').includes(tabId));
     if (activeBtn) activeBtn.classList.add('active');
 
     const activePane = document.getElementById(tabId);
@@ -501,11 +501,15 @@ function drawVisualDAG(flow, endpoints, correlations) {
 }
 
 function createNodeElement(ep, correlations) {
+    ep = ep || {};
+    correlations = correlations || [];
     const node = document.createElement('div');
     const isKept = ep.kept !== false;
+    const endpointUrl = ep.url || ep.full_url || ep.path || '';
+    const endpointName = ep.name || endpointUrl || 'Unnamed request';
     
     // Check if this endpoint has extractors or replacements (correlated)
-    const isCorrelated = correlations.some(c => ep.url.includes(c.var_name) || (ep.extractors && ep.extractors.length > 0));
+    const isCorrelated = correlations.some(c => (c.var_name && endpointUrl.includes(c.var_name)) || (ep.extractors && ep.extractors.length > 0));
     
     let nodeClasses = 'dag-node-item';
     if (!isKept) nodeClasses += ' excluded';
@@ -522,7 +526,7 @@ function createNodeElement(ep, correlations) {
     
     leftArea.innerHTML = `
         <span class="method-tag ${methodClass}">${method}</span>
-        <span class="node-url" title="${ep.url}">${ep.name || ep.url}</span>
+        <span class="node-url" title="${endpointUrl}">${endpointName}</span>
     `;
     
     node.appendChild(leftArea);
@@ -541,8 +545,8 @@ function createNodeElement(ep, correlations) {
         let badgesHtml = '';
         
         // Find if this is birth or target
-        const isBirth = correlations.some(c => c.source_url === ep.url);
-        const isTarget = correlations.some(c => c.target_url === ep.url);
+        const isBirth = correlations.some(c => c.source_url === endpointUrl);
+        const isTarget = correlations.some(c => c.target_url === endpointUrl);
         
         if (isBirth) {
             badgesHtml += `<span class="node-badge ext-badge"><i data-lucide="key-round" style="width: 10px; height: 10px; display: inline-block;"></i> AI Extractor Injected</span>`;
