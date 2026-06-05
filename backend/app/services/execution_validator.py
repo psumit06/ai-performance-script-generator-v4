@@ -20,9 +20,23 @@ def run_jmeter(jmx_path):
         return xml_report
 
     if not os.path.exists(jmeter_path) and not shutil.which(jmeter_path):
-        xml_report["dry_run_skipped"] = True
-        xml_report["skip_reason"] = f"JMeter binary not found at {jmeter_path}. XML structure validation passed."
-        return xml_report
+        return {
+            **xml_report,
+            "valid": False,
+            "success_rate": None,
+            "dry_run_skipped": True,
+            "jmeter_executed": False,
+            "xml_validation_passed": True,
+            "skip_reason": f"JMeter binary not found at {jmeter_path}. XML structure validation passed.",
+            "failures": [{
+                "sampler_label": "JMeter execution skipped",
+                "url": "",
+                "response_code": "JMETER_NOT_FOUND",
+                "response_message": "JMeter binary was not found",
+                "failure_message": f"Set JMETER_BIN to a valid jmeter.bat path. XML validation passed for {jmx_path}.",
+                "elapsed": "0"
+            }]
+        }
 
     # 1. Clean up old result files (JMeter refuses to overwrite JTL by default)
     if os.path.exists(jtl_path):
@@ -70,6 +84,11 @@ def run_jmeter(jmx_path):
             "stdout": exc.stdout or "",
             "stderr": exc.stderr or "",
             "dry_run_skipped": False,
+            "jmeter_executed": True,
+            "xml_validation_passed": True,
+            "jmeter_command": f"{jmeter_path} -n -t {jmx_path} -l {jtl_path} -j {log_path}",
+            "jtl_path": jtl_path,
+            "log_path": log_path,
             "skip_reason": ""
         }
 
@@ -123,6 +142,20 @@ def run_jmeter(jmx_path):
             "elapsed": "0"
         })
         success_rate = 0.0
+    elif total_requests == 0:
+        failed_requests = 1
+        failures.append({
+            "sampler_label": "JMeter execution",
+            "url": "",
+            "response_code": "NO_RESULTS",
+            "response_message": "JMeter produced no sample results",
+            "failure_message": (
+                "JMeter process exited with code 0 but no JTL samples were produced. "
+                f"Check {log_path} and confirm the validation JMX contains enabled samplers."
+            ),
+            "elapsed": "0"
+        })
+        success_rate = 0.0
             
     # Read log file snippets in case of JMeter runtime exceptions
     log_errors = []
@@ -146,6 +179,11 @@ def run_jmeter(jmx_path):
         "stdout": result.stdout,
         "stderr": result.stderr,
         "dry_run_skipped": False,
+        "jmeter_executed": True,
+        "xml_validation_passed": True,
+        "jmeter_command": f"{jmeter_path} -n -t {jmx_path} -l {jtl_path} -j {log_path}",
+        "jtl_path": jtl_path,
+        "log_path": log_path,
         "skip_reason": ""
     }
 
@@ -162,6 +200,11 @@ def validate_jmx_xml(jmx_path):
             "stdout": "",
             "stderr": "",
             "dry_run_skipped": False,
+            "jmeter_executed": False,
+            "xml_validation_passed": True,
+            "jmeter_command": "",
+            "jtl_path": "",
+            "log_path": "",
             "skip_reason": ""
         }
     except Exception as exc:
@@ -182,5 +225,10 @@ def validate_jmx_xml(jmx_path):
             "stdout": "",
             "stderr": str(exc),
             "dry_run_skipped": True,
+            "jmeter_executed": False,
+            "xml_validation_passed": False,
+            "jmeter_command": "",
+            "jtl_path": "",
+            "log_path": "",
             "skip_reason": "JMX XML validation failed before JMeter execution."
         }

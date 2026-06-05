@@ -30,6 +30,22 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
             
         # 2. Run JMeter dry-run against the constrained validation plan.
         run_report = run_jmeter(validation_path)
+
+        if run_report.get("dry_run_skipped"):
+            healing_history.append({
+                "iteration": iteration,
+                "success": False,
+                "diagnosis": run_report.get("skip_reason", "JMeter dry run was skipped."),
+                "action_taken": "Generated JMX and completed XML validation only. Configure JMETER_BIN to run sampler validation.",
+                "failures": run_report.get("failures", [])
+            })
+            return {
+                "success": False,
+                "jmx_content": jmx_content,
+                "report": run_report,
+                "healing_history": healing_history,
+                "iterations": iteration
+            }
         
         # If successfully executed without failures, exit loop!
         if run_report["valid"]:
