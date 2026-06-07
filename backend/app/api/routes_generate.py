@@ -170,6 +170,7 @@ async def generate_from_file(
             "validation": {
                 "valid": healing_result["report"].get("valid", False),
                 "xml_validation_passed": healing_result["report"].get("xml_validation_passed", False),
+                "xml_success_rate": healing_result["report"].get("xml_success_rate", 0.0),
                 "jmeter_executed": healing_result["report"].get("jmeter_executed", False),
                 "dry_run_skipped": healing_result["report"].get("dry_run_skipped", False),
                 "skip_reason": healing_result["report"].get("skip_reason", ""),
