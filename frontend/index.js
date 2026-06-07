@@ -241,7 +241,10 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     downloadBtn.disabled = true;
     downloadBtnMain.disabled = true;
     
-    document.getElementById('statSuccess').textContent = '--';
+    document.getElementById('statXmlValue').textContent = '--';
+    document.getElementById('statXmlIcon').className = 'stat-detail-icon';
+    document.getElementById('statDryRunValue').textContent = '--';
+    document.getElementById('statDryRunIcon').className = 'stat-detail-icon';
     document.getElementById('statNoise').textContent = '--';
     document.getElementById('statCorrelations').textContent = '--';
     document.getElementById('statHealed').textContent = '--';
@@ -332,6 +335,8 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
         if (validation.xml_validation_passed) {
             logTerminal(`[XML Validation] JMX XML structure validation passed.`, 'success');
+        } else {
+            logTerminal(`[XML Validation] JMX XML structure validation failed.`, 'error');
         }
 
         if (validation.dry_run_skipped) {
@@ -348,11 +353,11 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         }
         
         if (data.healing_history.length === 0 && validation.jmeter_executed) {
-            logTerminal(`[Dry Run Validation] Iteration 1: ${data.success_rate}% success rate. Script clean.`, 'success');
+            logTerminal(`[Dry Run Validation] Iteration 1: XML Passed. Execution ${data.success_rate}% success rate. Script clean.`, 'success');
         } else {
             data.healing_history.forEach(log => {
                 const rateText = data.success_rate === null || data.success_rate === undefined ? 'not available' : `${data.success_rate}%`;
-                logTerminal(`[Dry Run Validation] Iteration ${log.iteration}: success_rate=${rateText}. Errors detected!`, 'error');
+                logTerminal(`[Dry Run Validation] Iteration ${log.iteration}: XML Passed. Execution rate=${rateText}. Errors detected!`, 'error');
                 log.failures.forEach(f => {
                     logTerminal(`   -> Fail: ${f.sampler_label} returned [${f.response_code} ${f.response_message}]`, 'error');
                 });
@@ -368,9 +373,31 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         }
 
         // 4. Update Stats Dashboard
-        document.getElementById('statSuccess').textContent = validation.dry_run_skipped
-            ? 'Skipped'
-            : (data.success_rate === null || data.success_rate === undefined ? '--' : data.success_rate + '%');
+        const xmlIcon = document.getElementById('statXmlIcon');
+        const dryRunIcon = document.getElementById('statDryRunIcon');
+
+        // XML Validation status
+        if (validation.xml_validation_passed) {
+            document.getElementById('statXmlValue').textContent = 'Passed';
+            xmlIcon.className = 'stat-detail-icon pass';
+        } else {
+            document.getElementById('statXmlValue').textContent = 'Failed';
+            xmlIcon.className = 'stat-detail-icon fail';
+        }
+
+        // Dry Run Execution status
+        if (validation.dry_run_skipped) {
+            document.getElementById('statDryRunValue').textContent = 'Skipped';
+            dryRunIcon.className = 'stat-detail-icon skip';
+        } else if (data.success_rate === null || data.success_rate === undefined) {
+            document.getElementById('statDryRunValue').textContent = '--';
+            dryRunIcon.className = 'stat-detail-icon';
+        } else {
+            const passed = data.total_requests - data.failed_requests;
+            document.getElementById('statDryRunValue').textContent = data.success_rate + '% (' + passed + '/' + data.total_requests + ')';
+            dryRunIcon.className = data.success_rate >= 100 ? 'stat-detail-icon pass' : 'stat-detail-icon fail';
+        }
+
         document.getElementById('statNoise').textContent = noiseRatio + '%';
         document.getElementById('statCorrelations').textContent = data.correlations.length;
         document.getElementById('statHealed').textContent = data.healing_history.length;

@@ -125,8 +125,17 @@
                 <!-- Stats Overview -->
                 <div class="stats-row grid grid-cols-4 gap-4">
                     <div class="glass-card stat-card">
-                        <span class="stat-label">Dry-Run Success Rate</span>
-                        <span class="stat-value text-neon-green" id="statSuccess">--</span>
+                        <span class="stat-label">Dry-Run Validation</span>
+                        <div class="stat-detail">
+                            <span class="stat-detail-line" id="statXml">
+                                <span class="stat-detail-icon" id="statXmlIcon"></span>
+                                <span>XML: <strong id="statXmlValue">--</strong></span>
+                            </span>
+                            <span class="stat-detail-line" id="statDryRun">
+                                <span class="stat-detail-icon" id="statDryRunIcon"></span>
+                                <span>Execution: <strong id="statDryRunValue">--</strong></span>
+                            </span>
+                        </div>
                         <i data-lucide="shield-check" class="stat-bg-icon"></i>
                     </div>
                     <div class="glass-card stat-card">
