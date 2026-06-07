@@ -17,13 +17,17 @@ def run_jmeter(jmx_path):
 
     xml_report = validate_jmx_xml(jmx_path)
     if not xml_report["valid"]:
-        return xml_report
+        return {
+            **xml_report,
+            "xml_success_rate": 0.0,
+        }
 
     if not os.path.exists(jmeter_path) and not shutil.which(jmeter_path):
         return {
             **xml_report,
             "valid": False,
             "success_rate": None,
+            "xml_success_rate": 100.0,
             "dry_run_skipped": True,
             "jmeter_executed": False,
             "xml_validation_passed": True,
@@ -70,6 +74,7 @@ def run_jmeter(jmx_path):
         return {
             "valid": False,
             "success_rate": 0.0,
+            "xml_success_rate": 100.0,
             "total_requests": 0,
             "failed_requests": 1,
             "failures": [{
@@ -172,6 +177,7 @@ def run_jmeter(jmx_path):
     return {
         "valid": len(failures) == 0,
         "success_rate": success_rate,
+        "xml_success_rate": 100.0,
         "total_requests": total_requests,
         "failed_requests": failed_requests,
         "failures": failures,
@@ -193,6 +199,7 @@ def validate_jmx_xml(jmx_path):
         return {
             "valid": True,
             "success_rate": 100.0,
+            "xml_success_rate": 100.0,
             "total_requests": 0,
             "failed_requests": 0,
             "failures": [],
@@ -211,6 +218,7 @@ def validate_jmx_xml(jmx_path):
         return {
             "valid": False,
             "success_rate": 0.0,
+            "xml_success_rate": 0.0,
             "total_requests": 0,
             "failed_requests": 1,
             "failures": [{
