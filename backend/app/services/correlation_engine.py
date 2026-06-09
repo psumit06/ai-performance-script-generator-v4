@@ -87,6 +87,7 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
                 
             # Scan upstream responses
             found_upstream = False
+            upstream_token_endpoint_idx = None
             for j in range(i):
                 upstream_ep = endpoints[j]
                 
@@ -155,6 +156,44 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
                             "extractor_type": extractor_config["type"]
                         })
                     break # Value correlated, move to next candidate
+                
+                # Track potential token endpoint (POST to /token, /oauth/token, etc.) even without response
+                if upstream_token_endpoint_idx is None and is_token_endpoint(upstream_ep):
+                    upstream_token_endpoint_idx = j
+            
+            # Fallback: Token found in downstream but not in any upstream response.
+            # If there's a token endpoint upstream, create a default JSON extractor for access_token.
+            if not found_upstream and upstream_token_endpoint_idx is not None:
+                upstream_ep = endpoints[upstream_token_endpoint_idx]
+                # Assume standard OAuth response: {"access_token": "...", "token_type": "Bearer", ...}
+                extractor_config = {
+                    "type": "json_extractor",
+                    "var_name": f"c_{sanitize_var_name(cand_key or 'token')}",
+                    "json_path": "$.access_token",
+                    "left_boundary": None,
+                    "right_boundary": None,
+                    "regex": None,
+                    "header_name": None
+                }
+                var_name = extractor_config["var_name"]
+                correlated_values[cand_val] = var_name
+                
+                if "extractors" not in upstream_ep:
+                    upstream_ep["extractors"] = []
+                upstream_ep["extractors"].append(extractor_config)
+                
+                replace_token_in_request(downstream_ep, cand_val, var_name)
+                
+                correlations.append({
+                    "token_name": cand_key,
+                    "token_val_preview": cand_val[:12] + "...",
+                    "source_index": upstream_token_endpoint_idx,
+                    "source_url": upstream_ep.get("full_url", ""),
+                    "target_index": i,
+                    "target_url": downstream_ep.get("full_url", ""),
+                    "var_name": var_name,
+                    "extractor_type": extractor_config["type"]
+                })
                     
     # Save correlation metadata to endpoints return package for visualization
     endpoints_meta = {
@@ -221,12 +260,33 @@ def collect_jmeter_variable_targets(endpoints):
 
     return variable_targets
 
+def is_token_endpoint(endpoint):
+    """Check if an endpoint is a token/auth endpoint (POST to /token, /oauth/token, etc.)"""
+    name = (endpoint.get("name") or "").lower()
+    path = (endpoint.get("path") or endpoint.get("full_url") or "").lower()
+    method = (endpoint.get("method") or "").upper()
+    if method != "POST":
+        return False
+    # Common token endpoint patterns
+    token_indicators = [
+        "token" in path,
+        "oauth" in path and "token" in path,
+        "auth" in path and "token" in path,
+        "login" in path,
+        "signin" in path,
+        "token" in name,
+        "createtoken" in name.replace(" ", ""),
+        "gettoken" in name.replace(" ", ""),
+    ]
+    return any(token_indicators)
+
+def sanitize_var_name(name):
+    """Sanitize a name for use as JMeter variable (alphanumeric only)"""
+    return re.sub(r'[^a-zA-Z0-9]', '', name or "token") or "token"
+
 def find_token_source_endpoint(endpoints):
     for idx, ep in enumerate(endpoints):
-        name = (ep.get("name") or "").lower()
-        path = (ep.get("path") or ep.get("full_url") or "").lower()
-        method = (ep.get("method") or "").upper()
-        if method == "POST" and "auth" in path and ("login" in path or "token" in name or "createtoken" in name.replace(" ", "")):
+        if is_token_endpoint(ep):
             return idx
     return None
 
