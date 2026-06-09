@@ -134,6 +134,35 @@ def process_request(item, endpoints, folder_path=None, variables=None):
         if key.lower() == "content-type":
             content_type = value
 
+    # Parse Postman auth block and inject Authorization header
+    auth = request.get("auth", {})
+    if isinstance(auth, dict):
+        auth_type = auth.get("type", "")
+        if auth_type == "bearer":
+            bearer_list = auth.get("bearer", [])
+            for b in bearer_list:
+                if b.get("key") == "token":
+                    token_val = convert_vars(b.get("value") or "")
+                    if token_val:
+                        # Remove existing Authorization header if present
+                        normalized_headers = [h for h in normalized_headers if h["key"].lower() != "authorization"]
+                        normalized_headers.append({"key": "Authorization", "value": f"Bearer {token_val}"})
+                        break
+        elif auth_type == "basic":
+            basic_list = auth.get("basic", [])
+            username = ""
+            password = ""
+            for b in basic_list:
+                if b.get("key") == "username":
+                    username = convert_vars(b.get("value") or "")
+                elif b.get("key") == "password":
+                    password = convert_vars(b.get("value") or "")
+            if username:
+                import base64
+                cred = base64.b64encode(f"{username}:{password}".encode()).decode()
+                normalized_headers = [h for h in normalized_headers if h["key"].lower() != "authorization"]
+                normalized_headers.append({"key": "Authorization", "value": f"Basic {cred}"})
+
     endpoint["headers"] = normalized_headers
     endpoint["content_type"] = content_type
 
