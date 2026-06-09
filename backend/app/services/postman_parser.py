@@ -46,6 +46,8 @@ def resolve_protocol_host(postman_protocol, postman_host, variables):
 
 def process_request(item, endpoints, folder_path=None, variables=None):
     request = item.get("request", {})
+    if not isinstance(request, dict):
+        request = {}
     endpoint = create_endpoint_schema()
     folder_path = folder_path or []
     variables = variables or {}
@@ -60,10 +62,9 @@ def process_request(item, endpoints, folder_path=None, variables=None):
 
     # URL
     raw_url = request.get("url", {})
-    if isinstance(raw_url, dict):
-        full_url = raw_url.get("raw") or ""
-    else:
-        full_url = str(raw_url) if raw_url else ""
+    if not isinstance(raw_url, dict):
+        raw_url = {"raw": str(raw_url) if raw_url else ""}
+    full_url = raw_url.get("raw") or ""
 
     # Convert Postman variable syntax to JMeter syntax in URL
     full_url = convert_vars(full_url)
@@ -136,38 +137,41 @@ def process_request(item, endpoints, folder_path=None, variables=None):
 
     # Parse Postman auth block and inject Authorization header
     auth = request.get("auth", {})
-    if isinstance(auth, dict):
-        auth_type = auth.get("type", "")
-        if auth_type == "bearer":
-            bearer_list = auth.get("bearer", [])
-            for b in bearer_list:
-                if b.get("key") == "token":
-                    token_val = convert_vars(b.get("value") or "")
-                    if token_val:
-                        # Remove existing Authorization header if present
-                        normalized_headers = [h for h in normalized_headers if h["key"].lower() != "authorization"]
-                        normalized_headers.append({"key": "Authorization", "value": f"Bearer {token_val}"})
-                        break
-        elif auth_type == "basic":
-            basic_list = auth.get("basic", [])
-            username = ""
-            password = ""
-            for b in basic_list:
-                if b.get("key") == "username":
-                    username = convert_vars(b.get("value") or "")
-                elif b.get("key") == "password":
-                    password = convert_vars(b.get("value") or "")
-            if username:
-                import base64
-                cred = base64.b64encode(f"{username}:{password}".encode()).decode()
-                normalized_headers = [h for h in normalized_headers if h["key"].lower() != "authorization"]
-                normalized_headers.append({"key": "Authorization", "value": f"Basic {cred}"})
+    if not isinstance(auth, dict):
+        auth = {}
+    auth_type = auth.get("type", "")
+    if auth_type == "bearer":
+        bearer_list = auth.get("bearer", [])
+        for b in bearer_list:
+            if b.get("key") == "token":
+                token_val = convert_vars(b.get("value") or "")
+                if token_val:
+                    # Remove existing Authorization header if present
+                    normalized_headers = [h for h in normalized_headers if h["key"].lower() != "authorization"]
+                    normalized_headers.append({"key": "Authorization", "value": f"Bearer {token_val}"})
+                    break
+    elif auth_type == "basic":
+        basic_list = auth.get("basic", [])
+        username = ""
+        password = ""
+        for b in basic_list:
+            if b.get("key") == "username":
+                username = convert_vars(b.get("value") or "")
+            elif b.get("key") == "password":
+                password = convert_vars(b.get("value") or "")
+        if username:
+            import base64
+            cred = base64.b64encode(f"{username}:{password}".encode()).decode()
+            normalized_headers = [h for h in normalized_headers if h["key"].lower() != "authorization"]
+            normalized_headers.append({"key": "Authorization", "value": f"Basic {cred}"})
 
     endpoint["headers"] = normalized_headers
     endpoint["content_type"] = content_type
 
     # Body
     body = request.get("body", {})
+    if not isinstance(body, dict):
+        body = {}
     body_mode = body.get("mode", "")
     endpoint["body_mode"] = body_mode
 
@@ -230,6 +234,8 @@ def process_items(items, endpoints, folder_path=None, variables=None):
     folder_path = folder_path or []
     variables = variables or {}
     for item in items:
+        if not isinstance(item, dict):
+            continue
         # FOLDER DETECTED
         if "item" in item:
             process_items(item["item"], endpoints, folder_path + [convert_vars(item.get("name", "Folder"))], variables)
