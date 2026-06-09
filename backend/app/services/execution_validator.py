@@ -60,17 +60,41 @@ def run_jmeter(jmx_path):
 
     # 2. Build and run command
     # We run 1 loop, 1 user using the JMX script
-    timeout_seconds = int(os.getenv("JMETER_TIMEOUT_SECONDS", "60"))
+    # Increased timeout to handle slower environments and network latency
+    timeout_seconds = int(os.getenv("JMETER_TIMEOUT_SECONDS", "120"))
     try:
         print(f"#####Running JMeter dry-run: {jmeter_path} -n -t {jmx_path} -l {jtl_path} -j {log_path}")
+        # Run JMeter with connection timeout settings to prevent hanging
         result = subprocess.run(
-            [jmeter_path, "-n", "-t", jmx_path, "-l", jtl_path, "-j", log_path],
+            [jmeter_path, "-n", "-t", jmx_path, "-l", jtl_path, "-j", log_path,
+             "-Jjmeterengine.force.system.exit=true",
+             "-Jsocket.connect.timeout=5000"],
             capture_output=True,
             text=True,
             shell=False,
             timeout=timeout_seconds
         )
     except subprocess.TimeoutExpired as exc:
+        # Try to read JMeter log for more details about the timeout
+        log_errors = []
+        if os.path.exists(log_path):
+            try:
+                with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                    lines = f.readlines()
+                    for line in lines[-20:]:
+                        if "ERROR" in line or "Exception" in line or "timeout" in line.lower():
+                            log_errors.append(line.strip())
+            except Exception:
+                pass
+        
+        # Kill any remaining JMeter process
+        try:
+            import signal
+            if hasattr(signal, 'SIGTERM'):
+                os.killpg(os.getpgid(result.pid), signal.SIGTERM)
+        except Exception:
+            pass
+        
         return {
             "valid": False,
             "success_rate": 0.0,
@@ -81,11 +105,11 @@ def run_jmeter(jmx_path):
                 "sampler_label": "JMeter dry-run timeout",
                 "url": "",
                 "response_code": "TIMEOUT",
-                "response_message": f"JMeter exceeded {timeout_seconds}s dry-run timeout",
+                "response_message": f"JMeter exceeded {timeout_seconds}s dry-run timeout. The server may be unreachable or responding slowly.",
                 "failure_message": (exc.stderr or exc.stdout or "").strip() if isinstance(exc.stderr or exc.stdout, str) else "",
                 "elapsed": str(timeout_seconds * 1000)
             }],
-            "log_errors": [f"JMeter dry-run exceeded {timeout_seconds}s timeout."],
+            "log_errors": log_errors or [f"JMeter dry-run exceeded {timeout_seconds}s timeout."],
             "stdout": exc.stdout or "",
             "stderr": exc.stderr or "",
             "dry_run_skipped": False,
