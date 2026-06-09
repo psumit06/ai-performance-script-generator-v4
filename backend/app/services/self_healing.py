@@ -275,8 +275,12 @@ def apply_remediation(test_plan, original_endpoints, healing_action, llm_provide
     new_ext = healing_action.get("new_extractor")
     replacements = healing_action.get("replacements", [])
     
+    # Handle case where AI returns a list of extractors instead of a single one
+    if isinstance(new_ext, list):
+        new_ext = new_ext[0] if new_ext else None
+    
     # 1. Add new extractor to the test plan endpoint
-    if new_ext and new_ext.get("upstream_index") is not None:
+    if new_ext and isinstance(new_ext, dict) and new_ext.get("upstream_index") is not None:
         upstream_idx = new_ext["upstream_index"]
         if 0 <= upstream_idx < len(original_endpoints):
             target_ep = original_endpoints[upstream_idx]
@@ -303,10 +307,19 @@ def apply_remediation(test_plan, original_endpoints, healing_action, llm_provide
     # 2. Apply replacements downstream
     from app.services.correlation_engine import replace_token_in_request
     
+    # Ensure replacements is a list
+    if not isinstance(replacements, list):
+        replacements = []
+    
     for rep in replacements:
-        req_idx = rep["request_index"]
-        token_val = rep["token_value"]
-        var_name = rep["var_name"]
+        if not isinstance(rep, dict):
+            continue
+        req_idx = rep.get("request_index")
+        token_val = rep.get("token_value")
+        var_name = rep.get("var_name")
+        
+        if req_idx is None or token_val is None or var_name is None:
+            continue
         
         if 0 <= req_idx < len(original_endpoints):
             downstream_ep = original_endpoints[req_idx]
