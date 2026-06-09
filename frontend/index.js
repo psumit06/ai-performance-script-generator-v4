@@ -393,7 +393,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
             document.getElementById('statDryRunValue').textContent = '--';
             dryRunIcon.className = 'stat-detail-icon';
         } else {
-            const passed = data.total_requests - data.failed_requests;
+            const passed = Math.max(0, data.total_requests - data.failed_requests);
             document.getElementById('statDryRunValue').textContent = data.success_rate + '% (' + passed + '/' + data.total_requests + ')';
             dryRunIcon.className = data.success_rate >= 100 ? 'stat-detail-icon pass' : 'stat-detail-icon fail';
         }
