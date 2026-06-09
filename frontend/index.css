@@ -191,6 +191,11 @@ svg[data-lucide] {
 .control-panel {
     min-height: 0;
     overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.control-panel::-webkit-scrollbar {
+    display: none;
 }
 
 .flex {
