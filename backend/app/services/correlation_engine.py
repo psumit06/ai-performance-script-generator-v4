@@ -61,13 +61,10 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
             if len(val) > 8 and token_pattern.match(val) and not jmeter_var_pattern.search(val):
                 candidates.append(("query", q.get("key"), val))
 
-        # C. Body params
+        # C. Body params - only scan urlencoded/formdata (not raw JSON body
+        # to avoid false positives from static data fields like WSKEY, memberId)
         body_mode = downstream_ep.get("body_mode", "")
-        if body_mode == "raw":
-            body_text = downstream_ep.get("raw_body", "")
-            if not jmeter_var_pattern.search(body_text or ""):
-                candidates.extend(extract_token_candidates_from_text(body_text, "body_json"))
-        elif body_mode == "urlencoded":
+        if body_mode == "urlencoded":
             for param in downstream_ep.get("urlencoded", []):
                 val = param.get("value", "")
                 if len(val) > 8 and token_pattern.match(val) and not jmeter_var_pattern.search(val):
