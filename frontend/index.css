@@ -21,12 +21,15 @@
     box-sizing: border-box;
 }
 
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
 body {
     background-color: var(--bg-main);
     color: var(--text-primary);
     font-family: var(--font-sans);
-    min-height: 100vh;
-    overflow-x: hidden;
     position: relative;
 }
 
@@ -57,10 +60,10 @@ svg[data-lucide] {
     margin: 0 auto;
     padding: 24px;
     display: flex;
-    flex-col: column;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
     gap: 24px;
+    overflow: hidden;
 }
 
 .app-alert {
@@ -174,6 +177,7 @@ svg[data-lucide] {
     align-items: stretch;
     flex: 1;
     min-height: 0;
+    overflow: hidden;
 }
 
 .dashboard-panel {
@@ -181,7 +185,12 @@ svg[data-lucide] {
     flex-direction: column;
     gap: 24px;
     min-height: 0;
-    max-height: calc(100vh - 140px);
+    overflow: hidden;
+}
+
+.control-panel {
+    min-height: 0;
+    overflow-y: auto;
 }
 
 .flex {
@@ -549,9 +558,7 @@ svg[data-lucide] {
 
 /* Stats Cards */
 .stats-row {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    flex-shrink: 0;
 }
 
 .stat-card {
