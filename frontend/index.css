@@ -173,6 +173,15 @@ svg[data-lucide] {
     gap: 24px;
     align-items: stretch;
     flex: 1;
+    min-height: 0;
+}
+
+.dashboard-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-height: 0;
+    max-height: calc(100vh - 140px);
 }
 
 .flex {
@@ -539,6 +548,12 @@ svg[data-lucide] {
 }
 
 /* Stats Cards */
+.stats-row {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
 .stat-card {
     padding: 16px 20px;
     position: relative;
@@ -646,7 +661,19 @@ svg.stat-bg-icon {
 
 /* Workspace & Tabs */
 .workspace-card {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tab-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .tab-header {
@@ -697,12 +724,15 @@ svg.stat-bg-icon {
 .tab-pane {
     display: none;
     padding: 24px;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     position: relative;
 }
 
 .tab-pane.active {
     display: flex;
+    flex-direction: column;
 }
 
 /* DAG Flow Tab */
