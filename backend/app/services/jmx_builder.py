@@ -219,8 +219,11 @@ elementType="HTTPArgument">
 <hashTree>
 """
 
-    # Render Header Manager if headers present
-    if headers:
+    # Render Header Manager if headers present (or if we need to add Content-Type)
+    has_content_type = any(h.get("key", "").lower() == "content-type" for h in headers)
+    needs_content_type = not has_content_type and body_mode in ("urlencoded", "formdata", "raw")
+    
+    if headers or needs_content_type:
         xml += """
 <HeaderManager guiclass="HeaderPanel"
 testclass="HeaderManager"
@@ -246,6 +249,31 @@ elementType="Header">
 
 </elementProp>
 """
+        
+        # Auto-add Content-Type based on body mode if not already present
+        if needs_content_type:
+            if body_mode == "urlencoded":
+                ct_value = "application/x-www-form-urlencoded"
+            elif body_mode == "formdata":
+                ct_value = "multipart/form-data"
+            elif body_mode == "raw":
+                # Default to JSON for raw bodies
+                ct_value = "application/json"
+            else:
+                ct_value = ""
+            
+            if ct_value:
+                xml += f"""
+<elementProp name=""
+elementType="Header">
+
+{string_prop("Header.name", "Content-Type")}
+
+{string_prop("Header.value", ct_value)}
+
+</elementProp>
+"""
+        
         xml += """
 </collectionProp>
 
