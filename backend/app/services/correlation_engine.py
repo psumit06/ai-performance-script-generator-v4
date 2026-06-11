@@ -127,17 +127,32 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
                         token_value=cand_val,
                         token_key=cand_key,
                         llm_provider=llm_provider,
-                        llm_model=llm_model
+                        llm_model=llm_model,
+                        test_script_info=upstream_ep.get("test_script_info", {})
                     )
                     
                     if extractor_config:
                         var_name = extractor_config["var_name"]
                         correlated_values[cand_val] = var_name
                         
-                        # Add extractor to the birth endpoint
-                        if "extractors" not in upstream_ep:
-                            upstream_ep["extractors"] = []
-                        upstream_ep["extractors"].append(extractor_config)
+                        # Check if extractor with same type and json_path/regex already exists
+                        existing_extractors = upstream_ep.get("extractors", [])
+                        extractor_already_exists = False
+                        for existing_ext in existing_extractors:
+                            if (existing_ext.get("type") == extractor_config.get("type") and
+                                existing_ext.get("json_path") == extractor_config.get("json_path") and
+                                existing_ext.get("regex") == extractor_config.get("regex")):
+                                # Use existing extractor's var_name instead of creating duplicate
+                                var_name = existing_ext["var_name"]
+                                correlated_values[cand_val] = var_name
+                                extractor_already_exists = True
+                                break
+                        
+                        if not extractor_already_exists:
+                            # Add extractor to the birth endpoint
+                            if "extractors" not in upstream_ep:
+                                upstream_ep["extractors"] = []
+                            upstream_ep["extractors"].append(extractor_config)
                         
                         # Replace in this request
                         replace_token_in_request(downstream_ep, cand_val, var_name)
@@ -162,22 +177,48 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
             # If there's a token endpoint upstream, create a default JSON extractor for access_token.
             if not found_upstream and upstream_token_endpoint_idx is not None:
                 upstream_ep = endpoints[upstream_token_endpoint_idx]
-                # Assume standard OAuth response: {"access_token": "...", "token_type": "Bearer", ...}
+                
+                # Check if upstream endpoint has Postman test script info
+                test_script_info = upstream_ep.get("test_script_info", {})
+                
+                # Use Postman test script info if available, otherwise use defaults
+                if test_script_info and test_script_info.get("variable_name") and test_script_info.get("json_path"):
+                    var_name_base = test_script_info["variable_name"]
+                    json_path = test_script_info["json_path"]
+                else:
+                    # Assume standard OAuth response: {"access_token": "...", "token_type": "Bearer", ...}
+                    var_name_base = sanitize_var_name(cand_key or 'token')
+                    json_path = "$.access_token"
+                
                 extractor_config = {
                     "type": "json_extractor",
-                    "var_name": f"c_{sanitize_var_name(cand_key or 'token')}",
-                    "json_path": "$.access_token",
+                    "var_name": f"c_{var_name_base}",
+                    "json_path": json_path,
                     "left_boundary": None,
                     "right_boundary": None,
                     "regex": None,
                     "header_name": None
                 }
                 var_name = extractor_config["var_name"]
-                correlated_values[cand_val] = var_name
                 
-                if "extractors" not in upstream_ep:
-                    upstream_ep["extractors"] = []
-                upstream_ep["extractors"].append(extractor_config)
+                # Check if extractor with same json_path already exists on this endpoint
+                existing_extractors = upstream_ep.get("extractors", [])
+                extractor_already_exists = False
+                for existing_ext in existing_extractors:
+                    if existing_ext.get("json_path") == json_path:
+                        # Use existing extractor's var_name instead of creating duplicate
+                        var_name = existing_ext["var_name"]
+                        extractor_already_exists = True
+                        break
+                
+                if not extractor_already_exists:
+                    correlated_values[cand_val] = var_name
+                    
+                    if "extractors" not in upstream_ep:
+                        upstream_ep["extractors"] = []
+                    upstream_ep["extractors"].append(extractor_config)
+                else:
+                    correlated_values[cand_val] = var_name
                 
                 replace_token_in_request(downstream_ep, cand_val, var_name)
                 
@@ -211,16 +252,28 @@ def infer_postman_variable_correlations(endpoints):
         return correlations
 
     source_ep = endpoints[source_index]
+    
+    # Check if source endpoint has Postman test script info
+    test_script_info = source_ep.get("test_script_info", {})
+    
+    # Use Postman test script info if available, otherwise use defaults
+    if test_script_info and test_script_info.get("variable_name") and test_script_info.get("json_path"):
+        var_name = test_script_info["variable_name"]
+        json_path = test_script_info["json_path"]
+    else:
+        var_name = "token"
+        json_path = "$.token"
+    
     ensure_extractor(source_ep, {
         "type": "json_extractor",
-        "var_name": "token",
-        "json_path": "$.token",
+        "var_name": var_name,
+        "json_path": json_path,
         "left_boundary": None,
         "right_boundary": None,
         "regex": None,
         "header_name": None
     })
-    replace_hardcoded_token_placeholders(endpoints, "token")
+    replace_hardcoded_token_placeholders(endpoints, var_name)
 
     for target_index in variable_targets["token"]:
         if target_index == source_index:
@@ -233,7 +286,7 @@ def infer_postman_variable_correlations(endpoints):
             "source_url": source_ep.get("full_url", ""),
             "target_index": target_index,
             "target_url": target_ep.get("full_url", ""),
-            "var_name": "token",
+            "var_name": var_name,
             "extractor_type": "json_extractor"
         })
 
@@ -427,8 +480,8 @@ def split_variable_host_url(request):
         suffix = "/" + suffix
     request["path"] = suffix
 
-def generate_extractor_config(upstream_url, upstream_method, upstream_mime, source_location, snippet, token_value, token_key, llm_provider=None, llm_model=None):
-    deterministic_config = generate_extractor_deterministically(upstream_mime, source_location, snippet, token_value, token_key)
+def generate_extractor_config(upstream_url, upstream_method, upstream_mime, source_location, snippet, token_value, token_key, llm_provider=None, llm_model=None, test_script_info=None):
+    deterministic_config = generate_extractor_deterministically(upstream_mime, source_location, snippet, token_value, token_key, test_script_info)
     if not is_llm_available(llm_provider):
         return deterministic_config
     return generate_extractor_with_ai(
@@ -443,9 +496,24 @@ def generate_extractor_config(upstream_url, upstream_method, upstream_mime, sour
         llm_model
     ) or deterministic_config
 
-def generate_extractor_deterministically(upstream_mime, source_location, snippet, token_value, token_key):
-    sanitized_key = re.sub(r'[^a-zA-Z0-9]', '', token_key or "") or "token"
-    var_name = f"c_{sanitized_key[0].lower()}{sanitized_key[1:]}"
+def generate_extractor_deterministically(upstream_mime, source_location, snippet, token_value, token_key, test_script_info=None):
+    # Use Postman test script info if available for variable name and JSON path
+    if test_script_info and test_script_info.get("variable_name") and test_script_info.get("json_path"):
+        var_name = f"c_{test_script_info['variable_name']}"
+        # For JSON responses, use the JSON path from test script
+        if source_location == "body" and ("json" in upstream_mime.lower() or looks_like_json(snippet)):
+            return {
+                "type": "json_extractor",
+                "var_name": var_name,
+                "json_path": test_script_info["json_path"],
+                "left_boundary": None,
+                "right_boundary": None,
+                "regex": None,
+                "header_name": None
+            }
+    else:
+        sanitized_key = re.sub(r'[^a-zA-Z0-9]', '', token_key or "") or "token"
+        var_name = f"c_{sanitized_key[0].lower()}{sanitized_key[1:]}"
 
     if source_location.startswith("header:"):
         header_name = source_location.split(":", 1)[1]

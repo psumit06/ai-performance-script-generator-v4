@@ -51,5 +51,7 @@ def create_endpoint_schema():
 
         "extractors": [],
 
-        "transaction_hint": ""
+        "transaction_hint": "",
+        
+        "test_script_info": {}
     }

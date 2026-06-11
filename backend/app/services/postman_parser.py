@@ -16,6 +16,46 @@ def convert_vars(text):
     # Convert {{variable}} to ${variable}
     return re.sub(r'\{\{([^}]+)\}\}', r'${\1}', text)
 
+def extract_test_script_info(item):
+    """
+    Extract variable assignment info from Postman test scripts.
+    Example: pm.environment.set("token", pm.response.json().access_token);
+    Returns: {"variable_name": "token", "json_path": "$.access_token"}
+    """
+    test_script_info = {}
+    events = item.get("event", [])
+    
+    for event in events:
+        if event.get("listen") == "test":
+            script = event.get("script", {})
+            exec_lines = script.get("exec", [])
+            
+            for line in exec_lines:
+                # Match: pm.environment.set("variableName", pm.response.json().jsonPath);
+                # Or: pm.environment.set("variableName", pm.response.json()["jsonPath"]);
+                match = re.search(
+                    r'pm\.environment\.set\(\s*["\'](\w+)["\']\s*,\s*pm\.response\.json\(\)\.([\w\.\[\]\'\"]+)',
+                    line
+                )
+                if match:
+                    var_name = match.group(1)
+                    json_path_raw = match.group(2)
+                    
+                    # Convert dot notation to JSONPath notation
+                    # e.g., access_token -> $.access_token
+                    # e.g., data.user.token -> $.data.user.token
+                    json_path = "$." + json_path_raw.replace("[", ".[").replace("].", "].")
+                    # Clean up double dots
+                    json_path = json_path.replace("..", ".")
+                    
+                    test_script_info = {
+                        "variable_name": var_name,
+                        "json_path": json_path
+                    }
+                    break
+    
+    return test_script_info
+
 def collection_variables(data):
     variables = {}
     for item in data.get("variable", []) or []:
@@ -227,6 +267,9 @@ def process_request(item, endpoints, folder_path=None, variables=None):
         if not content_type:
             endpoint["content_type"] = "application/json"
             endpoint["headers"].append({"key": "Content-Type", "value": "application/json"})
+
+    # Extract test script info (variable assignments from pm.environment.set)
+    endpoint["test_script_info"] = extract_test_script_info(item)
 
     endpoints.append(endpoint)
 
