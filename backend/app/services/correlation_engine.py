@@ -367,14 +367,35 @@ def replace_hardcoded_token_placeholders(endpoints, original_var, replacement_va
     replacement = f"${{{replacement_var}}}"
     search_pattern = f"${{{original_var}}}"
     for ep in endpoints:
+        # URL parts
+        if search_pattern in (ep.get("full_url") or ""):
+            ep["full_url"] = ep["full_url"].replace(search_pattern, replacement)
+        for field in ("protocol", "host", "port", "path"):
+            val = ep.get(field) or ""
+            if search_pattern in val:
+                ep[field] = val.replace(search_pattern, replacement)
+                
+        # Headers
+        for h in ep.get("headers") or []:
+            val = h.get("value") or ""
+            if search_pattern in val:
+                h["value"] = val.replace(search_pattern, replacement)
+                
+        # Query Params
+        for q in ep.get("query_params") or []:
+            val = q.get("value") or ""
+            if search_pattern in val:
+                q["value"] = val.replace(search_pattern, replacement)
+
+        # Body
         if ep.get("raw_body"):
             ep["raw_body"] = ep["raw_body"].replace(search_pattern, replacement)
         for param in ep.get("urlencoded", []):
-            if (param.get("value") or "") == search_pattern:
-                param["value"] = replacement
+            if search_pattern in (param.get("value") or ""):
+                param["value"] = param["value"].replace(search_pattern, replacement)
         for param in ep.get("form_data", []):
-            if (param.get("value") or "") == search_pattern:
-                param["value"] = replacement
+            if search_pattern in (param.get("value") or ""):
+                param["value"] = param["value"].replace(search_pattern, replacement)
 
 def replace_json_string_field(text, field_name, replacement):
     return re.sub(
