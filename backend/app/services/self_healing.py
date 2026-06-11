@@ -299,8 +299,33 @@ def apply_remediation(test_plan, original_endpoints, healing_action, llm_provide
                 target_ep["extractors"] = []
                 
             # Avoid duplicate extractors
-            existing_names = [e["var_name"] for e in target_ep["extractors"]]
-            if extractor_obj["var_name"] not in existing_names:
+            existing_extractors = target_ep.setdefault("extractors", [])
+            
+            equivalent_var_name = None
+            for ext in existing_extractors:
+                if ext.get("var_name") == extractor_obj["var_name"]:
+                    equivalent_var_name = ext.get("var_name")
+                    break
+                if ext.get("type") == "json_extractor" and extractor_obj.get("type") == "json_extractor":
+                    if ext.get("json_path") and ext.get("json_path") == extractor_obj.get("json_path"):
+                        equivalent_var_name = ext.get("var_name")
+                        break
+                if ext.get("type") == "regex_extractor" and extractor_obj.get("type") == "regex_extractor":
+                    if ext.get("regex") and ext.get("regex") == extractor_obj.get("regex"):
+                        equivalent_var_name = ext.get("var_name")
+                        break
+                if ext.get("type") == "boundary_extractor" and extractor_obj.get("type") == "boundary_extractor":
+                    if ext.get("left_boundary") == extractor_obj.get("left_boundary") and ext.get("right_boundary") == extractor_obj.get("right_boundary"):
+                        equivalent_var_name = ext.get("var_name")
+                        break
+
+            if equivalent_var_name:
+                print(f"Equivalent extractor already exists for {extractor_obj['type']}. Reusing {equivalent_var_name} instead of {extractor_obj['var_name']}")
+                # Ensure replacements use the equivalent existing var_name
+                for rep in replacements:
+                    if rep.get("var_name") == extractor_obj["var_name"]:
+                        rep["var_name"] = equivalent_var_name
+            else:
                 target_ep["extractors"].append(extractor_obj)
                 print(f"Programmatically injected {new_ext['type']} ({new_ext['var_name']}) under request index {upstream_idx}")
 

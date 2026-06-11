@@ -249,7 +249,8 @@ def infer_postman_variable_correlations(endpoints):
     correlations = []
     variable_targets = collect_jmeter_variable_targets(endpoints)
 
-    if "token" not in variable_targets:
+    token_keys = [k for k in variable_targets.keys() if any(t in k.lower() for t in ["token", "session", "auth", "bearer", "jwt"])]
+    if not token_keys:
         return correlations
 
     source_index = find_token_source_endpoint(endpoints)
@@ -257,43 +258,42 @@ def infer_postman_variable_correlations(endpoints):
         return correlations
 
     source_ep = endpoints[source_index]
-    
-    # Check if source endpoint has Postman test script info
     test_script_info = source_ep.get("test_script_info", {})
-    
-    # Use Postman test script info if available, otherwise use defaults
-    if test_script_info and test_script_info.get("variable_name") and test_script_info.get("json_path"):
-        var_name = f"c_{test_script_info['variable_name']}"
-        json_path = test_script_info["json_path"]
-    else:
-        var_name = "c_token"
-        json_path = "$.token"
-    
-    ensure_extractor(source_ep, {
-        "type": "json_extractor",
-        "var_name": var_name,
-        "json_path": json_path,
-        "left_boundary": None,
-        "right_boundary": None,
-        "regex": None,
-        "header_name": None
-    })
-    replace_hardcoded_token_placeholders(endpoints, var_name)
 
-    for target_index in variable_targets["token"]:
-        if target_index == source_index:
-            continue
-        target_ep = endpoints[target_index]
-        correlations.append({
-            "token_name": "token",
-            "token_val_preview": "${token}",
-            "source_index": source_index,
-            "source_url": source_ep.get("full_url", ""),
-            "target_index": target_index,
-            "target_url": target_ep.get("full_url", ""),
+    for token_key in token_keys:
+        if test_script_info and test_script_info.get("variable_name") and test_script_info.get("json_path"):
+            var_name = f"c_{test_script_info['variable_name']}"
+            json_path = test_script_info["json_path"]
+        else:
+            var_name = f"c_{token_key}"
+            json_path = "$.access_token" if "token" in token_key.lower() else f"$.{token_key}"
+
+        actual_var_name = ensure_extractor(source_ep, {
+            "type": "json_extractor",
             "var_name": var_name,
-            "extractor_type": "json_extractor"
+            "json_path": json_path,
+            "left_boundary": None,
+            "right_boundary": None,
+            "regex": None,
+            "header_name": None
         })
+        
+        replace_hardcoded_token_placeholders(endpoints, token_key, actual_var_name)
+
+        for target_index in variable_targets[token_key]:
+            if target_index == source_index:
+                continue
+            target_ep = endpoints[target_index]
+            correlations.append({
+                "token_name": token_key,
+                "token_val_preview": f"${{{token_key}}}",
+                "source_index": source_index,
+                "source_url": source_ep.get("full_url", ""),
+                "target_index": target_index,
+                "target_url": target_ep.get("full_url", ""),
+                "var_name": actual_var_name,
+                "extractor_type": "json_extractor"
+            })
 
     return correlations
 
@@ -347,20 +347,33 @@ def find_token_source_endpoint(endpoints):
 
 def ensure_extractor(endpoint, extractor):
     existing = endpoint.setdefault("extractors", [])
-    if any(item.get("var_name") == extractor["var_name"] for item in existing):
-        return
+    
+    for item in existing:
+        if item.get("var_name") == extractor["var_name"]:
+            return item["var_name"]
+            
+        if item.get("type") == "json_extractor" and extractor.get("type") == "json_extractor":
+            if item.get("json_path") and item.get("json_path") == extractor.get("json_path"):
+                return item["var_name"]
+                
+        if item.get("type") == "regex_extractor" and extractor.get("type") == "regex_extractor":
+            if item.get("regex") and item.get("regex") == extractor.get("regex"):
+                return item["var_name"]
+                
     existing.append(extractor)
+    return extractor["var_name"]
 
-def replace_hardcoded_token_placeholders(endpoints, variable_name):
-    replacement = f"${{{variable_name}}}"
+def replace_hardcoded_token_placeholders(endpoints, original_var, replacement_var):
+    replacement = f"${{{replacement_var}}}"
+    search_pattern = f"${{{original_var}}}"
     for ep in endpoints:
         if ep.get("raw_body"):
-            ep["raw_body"] = replace_json_string_field(ep["raw_body"], "token", replacement)
+            ep["raw_body"] = ep["raw_body"].replace(search_pattern, replacement)
         for param in ep.get("urlencoded", []):
-            if (param.get("key") or "").lower() == "token":
+            if (param.get("value") or "") == search_pattern:
                 param["value"] = replacement
         for param in ep.get("form_data", []):
-            if (param.get("key") or "").lower() == "token":
+            if (param.get("value") or "") == search_pattern:
                 param["value"] = replacement
 
 def replace_json_string_field(text, field_name, replacement):
