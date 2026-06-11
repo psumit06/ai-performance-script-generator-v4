@@ -205,14 +205,19 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
                 existing_extractors = upstream_ep.get("extractors", [])
                 extractor_already_exists = False
                 for existing_ext in existing_extractors:
-                    if existing_ext.get("json_path") == json_path:
+                    # Check if same json_path exists (for json extractors)
+                    if (existing_ext.get("json_path") == json_path and 
+                        existing_ext.get("type") == "json_extractor" and
+                        json_path is not None):
                         # Use existing extractor's var_name instead of creating duplicate
                         var_name = existing_ext["var_name"]
                         extractor_already_exists = True
+                        print(f"[DEDUP] Found existing extractor with json_path={json_path}, using var_name={var_name}")
                         break
                 
                 if not extractor_already_exists:
                     correlated_values[cand_val] = var_name
+                    print(f"[NEW] Creating new extractor: var_name={var_name}, json_path={json_path}")
                     
                     if "extractors" not in upstream_ep:
                         upstream_ep["extractors"] = []
@@ -258,10 +263,10 @@ def infer_postman_variable_correlations(endpoints):
     
     # Use Postman test script info if available, otherwise use defaults
     if test_script_info and test_script_info.get("variable_name") and test_script_info.get("json_path"):
-        var_name = test_script_info["variable_name"]
+        var_name = f"c_{test_script_info['variable_name']}"
         json_path = test_script_info["json_path"]
     else:
-        var_name = "token"
+        var_name = "c_token"
         json_path = "$.token"
     
     ensure_extractor(source_ep, {
@@ -493,7 +498,8 @@ def generate_extractor_config(upstream_url, upstream_method, upstream_mime, sour
         token_value,
         token_key,
         llm_provider,
-        llm_model
+        llm_model,
+        test_script_info
     ) or deterministic_config
 
 def generate_extractor_deterministically(upstream_mime, source_location, snippet, token_value, token_key, test_script_info=None):
@@ -598,10 +604,17 @@ def build_regex_around_token(snippet, token_value):
             return f"{re.escape(left)}(.+?){re.escape(right)}"
     return f"({re.escape(token_value)})"
 
-def generate_extractor_with_ai(upstream_url, upstream_method, upstream_mime, source_location, snippet, token_value, token_key, llm_provider=None, llm_model=None):
+def generate_extractor_with_ai(upstream_url, upstream_method, upstream_mime, source_location, snippet, token_value, token_key, llm_provider=None, llm_model=None, test_script_info=None):
     """
     Calls the configured LLM to build the exact Boundary, JSONPath, Regex, or Header extractor.
     """
+    # If we have Postman test script info, use it to guide the AI
+    var_name_hint = ""
+    json_path_hint = ""
+    if test_script_info and test_script_info.get("variable_name") and test_script_info.get("json_path"):
+        var_name_hint = f'\n    IMPORTANT: Use this exact variable name: "c_{test_script_info["variable_name"]}" (from Postman test script)'
+        json_path_hint = f'\n    IMPORTANT: Use this exact JSON path: "{test_script_info["json_path"]}" (from Postman test script)'
+    
     prompt = f"""
     You are an expert Performance Engineer. 
     A hardcoded dynamic token was captured downstream, and we have traced its origin to this response from:
@@ -610,6 +623,8 @@ def generate_extractor_with_ai(upstream_url, upstream_method, upstream_mime, sou
     Token Location: {source_location}
     Token Key/Parameter Name: {token_key}
     Actual Token Value: {token_value}
+    {var_name_hint}
+    {json_path_hint}
 
     Here is a snippet of the response text containing the token:
     ---
