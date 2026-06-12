@@ -84,13 +84,14 @@ def resolve_protocol_host(postman_protocol, postman_host, variables):
 
     return protocol or "https", host, ""
 
-def process_request(item, endpoints, folder_path=None, variables=None):
+def process_request(item, endpoints, folder_path=None, variables=None, inherited_auth=None):
     request = item.get("request", {})
     if not isinstance(request, dict):
         request = {}
     endpoint = create_endpoint_schema()
     folder_path = folder_path or []
     variables = variables or {}
+    inherited_auth = inherited_auth or {}
     endpoint["source_index"] = len(endpoints)
     endpoint["transaction_hint"] = " / ".join(folder_path)
 
@@ -176,7 +177,12 @@ def process_request(item, endpoints, folder_path=None, variables=None):
             content_type = value
 
     # Parse Postman auth block and inject Authorization header
-    auth = request.get("auth", {})
+    request_auth = request.get("auth")
+    if request_auth is None or (isinstance(request_auth, dict) and request_auth.get("type") == "inherit"):
+        auth = inherited_auth or {}
+    else:
+        auth = request_auth
+        
     if not isinstance(auth, dict):
         auth = {}
     auth_type = auth.get("type", "")
@@ -273,24 +279,29 @@ def process_request(item, endpoints, folder_path=None, variables=None):
 
     endpoints.append(endpoint)
 
-def process_items(items, endpoints, folder_path=None, variables=None):
+def process_items(items, endpoints, folder_path=None, variables=None, inherited_auth=None):
     folder_path = folder_path or []
     variables = variables or {}
+    inherited_auth = inherited_auth or {}
     for item in items:
         if not isinstance(item, dict):
             continue
+            
+        current_auth = item.get("auth") or inherited_auth
+        
         # FOLDER DETECTED
         if "item" in item:
-            process_items(item["item"], endpoints, folder_path + [convert_vars(item.get("name", "Folder"))], variables)
+            process_items(item["item"], endpoints, folder_path + [convert_vars(item.get("name", "Folder"))], variables, current_auth)
         # ACTUAL REQUEST
         elif "request" in item:
-            process_request(item, endpoints, folder_path, variables)
+            process_request(item, endpoints, folder_path, variables, current_auth)
 
 def parse_postman_collection(content):
     data = json.loads(content)
     endpoints = []
     items = data.get("item", [])
-    process_items(items, endpoints, variables=collection_variables(data))
+    collection_auth = data.get("auth", {})
+    process_items(items, endpoints, variables=collection_variables(data), inherited_auth=collection_auth)
     return {
         "type": "postman",
         "endpoints": endpoints
