@@ -181,14 +181,25 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
                 # Check if upstream endpoint has Postman test script info
                 test_script_info = upstream_ep.get("test_script_info", {})
                 
+                # Try to find the actual JSON path of the token from the response body
+                best_json_path = None
+                if upstream_ep.get("response_body"):
+                    candidates_body = extract_token_candidates_from_text(upstream_ep["response_body"], "body")
+                    if candidates_body:
+                        sorted_candidates = sorted(candidates_body, key=lambda c: 0 if any(k in c[1].lower() for k in ["token", "auth"]) else 1)
+                        best_json_path = sorted_candidates[0][1]
+                
                 # Use Postman test script info if available, otherwise use defaults
                 if test_script_info and test_script_info.get("variable_name") and test_script_info.get("json_path"):
                     var_name_base = test_script_info["variable_name"]
                     json_path = test_script_info["json_path"]
                 else:
-                    # Assume standard OAuth response: {"access_token": "...", "token_type": "Bearer", ...}
                     var_name_base = sanitize_var_name(cand_key or 'token')
-                    json_path = "$.access_token"
+                    if best_json_path:
+                        json_path = best_json_path
+                    else:
+                        # Assume standard OAuth response: {"access_token": "...", "token_type": "Bearer", ...}
+                        json_path = "$.access_token"
                 
                 extractor_config = {
                     "type": "json_extractor",
