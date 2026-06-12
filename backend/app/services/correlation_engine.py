@@ -260,13 +260,26 @@ def infer_postman_variable_correlations(endpoints):
     source_ep = endpoints[source_index]
     test_script_info = source_ep.get("test_script_info", {})
 
+    # Try to find the actual JSON path of the token from the response body
+    best_json_path = None
+    if source_ep.get("response_body"):
+        candidates = extract_token_candidates_from_text(source_ep["response_body"], "body")
+        if candidates:
+            # Sort to prioritize keys containing 'token' or 'auth'
+            sorted_candidates = sorted(candidates, key=lambda c: 0 if any(k in c[1].lower() for k in ["token", "auth"]) else 1)
+            best_json_path = sorted_candidates[0][1]
+
     for token_key in token_keys:
         if test_script_info and test_script_info.get("variable_name") and test_script_info.get("json_path"):
             var_name = f"c_{test_script_info['variable_name']}"
             json_path = test_script_info["json_path"]
         else:
             var_name = f"c_{token_key}"
-            json_path = "$.access_token" if "token" in token_key.lower() else f"$.{token_key}"
+            if best_json_path:
+                json_path = best_json_path
+            else:
+                json_path = "$.access_token" if "token" in token_key.lower() else f"$.{token_key}"
+
 
         actual_var_name = ensure_extractor(source_ep, {
             "type": "json_extractor",
