@@ -224,15 +224,16 @@ def heal_failures_with_ai(failures, original_endpoints, test_plan, iteration, ll
     {json.dumps(active_extractors, indent=2)}
 
     Tasks:
-    1. DIAGNOSE: Why did the sampler fail? (E.g., 401 Unauthorized usually means a missing JWT or Authorization header, or CSRF token mismatch).
+    1. DIAGNOSE: Why did the sampler fail? (E.g., 401 Unauthorized usually means a missing JWT or Authorization header, 415 Unsupported Media Type means wrong Content-Type header, CSRF token mismatch, etc.).
     2. LOCATE Birth of Token: Look closely at "Upstream Ingestion History". Find which response body or header contains the token value used in the failed request's headers or body.
     3. CREATE REPAIR PLAN:
-       - Suggest a new extractor under the parent sampler (the birth index) to dynamically harvest this value.
-       - Tell us which downstream requests contain this hardcoded token and should be replaced with the variable expression `${{c_variableName}}`.
+       - If the failure is due to a missing/incorrect HEADER (e.g., Content-Type, Authorization, X-CSRF-Token), use "header_fix" to add or update headers.
+       - If the failure is due to a missing dynamic TOKEN, use "new_extractor" to create an extractor and "replacements" to replace hardcoded values.
+       - You can use BOTH "header_fix" and "new_extractor" if needed (e.g., extract a token AND add a Content-Type header).
 
     Respond with a strictly formatted JSON object:
     {{
-        "diagnosis": "Why it failed, identify the token value that was missing or incorrect.",
+        "diagnosis": "Why it failed, identify the root cause.",
         "action_taken": "Detailed remediation action described clearly.",
         "new_extractor": {{
             "upstream_index": (integer, the index from Upstream Ingestion History where the token was generated),
@@ -250,11 +251,28 @@ def heal_failures_with_ai(failures, original_endpoints, test_plan, iteration, ll
                 "token_value": "exact hardcoded token string to replace",
                 "var_name": "c_tokenName" (must match the var_name of new_extractor above)
             }}
-        ]
+        ],
+        "header_fix": {{
+            "request_index": (integer, index of request to add/fix headers),
+            "headers_to_add": [
+                {{
+                    "key": "Header-Name",
+                    "value": "Header-Value (can use ${{variable}} syntax)"
+                }}
+            ],
+            "headers_to_remove": [
+                "Header-Name-To-Remove"
+            ]
+        }}
     }}
 
-    If the failure is not related to a missing dynamic token (e.g., a missing header or minor status mismatch), you can omit "new_extractor" and provide just the diagnosis and descriptive action.
-    Return ONLY the valid raw JSON object. No markdown wrappers.
+    IMPORTANT NOTES:
+    - "new_extractor" is ONLY needed when you need to extract a dynamic token from an upstream response.
+    - "header_fix" is used to add missing headers or fix incorrect headers (e.g., Content-Type, Authorization).
+    - "replacements" is used to replace hardcoded token values with variable expressions.
+    - You can omit "new_extractor" and "replacements" if the fix only requires header changes.
+    - You can omit "header_fix" if the fix only requires token extraction.
+    - Return ONLY the valid raw JSON object. No markdown wrappers.
     """
 
     try:
@@ -351,7 +369,58 @@ def apply_remediation(test_plan, original_endpoints, healing_action, llm_provide
             replace_token_in_request(downstream_ep, token_val, var_name)
             print(f"Replaced hardcoded token in downstream request index {req_idx} with ${{{var_name}}}")
 
-    # 3. Reconstruct logical flow using updated endpoints
+    # 3. Apply header fixes (add/update/remove headers)
+    header_fix = healing_action.get("header_fix")
+    if header_fix and isinstance(header_fix, dict):
+        req_idx = header_fix.get("request_index")
+        headers_to_add = header_fix.get("headers_to_add", [])
+        headers_to_remove = header_fix.get("headers_to_remove", [])
+        
+        if req_idx is not None and 0 <= req_idx < len(original_endpoints):
+            target_ep = original_endpoints[req_idx]
+            
+            # Ensure headers list exists
+            if "headers" not in target_ep:
+                target_ep["headers"] = []
+            
+            # Remove headers first
+            for header_name in headers_to_remove:
+                if isinstance(header_name, str):
+                    target_ep["headers"] = [
+                        h for h in target_ep["headers"]
+                        if h.get("key", "").lower() != header_name.lower()
+                    ]
+                    print(f"Removed header '{header_name}' from request index {req_idx}")
+            
+            # Add/update headers
+            for header in headers_to_add:
+                if not isinstance(header, dict):
+                    continue
+                header_key = header.get("key", "")
+                header_value = header.get("value", "")
+                
+                if not header_key:
+                    continue
+                
+                # Check if header already exists
+                header_exists = False
+                for existing_header in target_ep["headers"]:
+                    if existing_header.get("key", "").lower() == header_key.lower():
+                        # Update existing header
+                        existing_header["value"] = header_value
+                        header_exists = True
+                        print(f"Updated header '{header_key}' in request index {req_idx}")
+                        break
+                
+                # Add new header if it doesn't exist
+                if not header_exists:
+                    target_ep["headers"].append({
+                        "key": header_key,
+                        "value": header_value
+                    })
+                    print(f"Added header '{header_key}' to request index {req_idx}")
+
+    # 4. Reconstruct logical flow using updated endpoints
     base_think_time = test_plan.get("thread_group", {}).get("think_time", 1500)
     updated_flow = reconstruct_logical_flow(
         original_endpoints,
