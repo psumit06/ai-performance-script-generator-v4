@@ -48,6 +48,19 @@
                     </div>
                 </div>
 
+                <!-- CSV Data Files -->
+                <div class="glass-card section-card">
+                    <h2 class="section-title"><i data-lucide="file-text"></i> CSV Data Files (Optional)</h2>
+                    <div class="csv-dropzone" id="csvDropzone">
+                        <input type="file" id="csvFileInput" accept=".csv" multiple style="display: none;">
+                        <i data-lucide="upload" class="upload-icon"></i>
+                        <p class="dropzone-text">Drag & drop <strong>CSV files</strong> for parameterization</p>
+                        <span class="dropzone-sub">or click to browse (supports multiple files)</span>
+                        <div class="csv-file-list" id="csvFileList"></div>
+                    </div>
+                    <div class="field-hint" id="csvHint">CSV files will be added as JMeter CSV Data Set Config elements</div>
+                </div>
+
                 <!-- Load Test Parameters -->
                 <div class="glass-card section-card">
                     <h2 class="section-title"><i data-lucide="sliders"></i> Execution Profile</h2>

@@ -1,5 +1,6 @@
 // App State
 let selectedFile = null;
+let selectedCsvFiles = [];
 let generatedJmxContent = null;
 let currentTab = 'dagTab';
 let llmProviderStatus = null;
@@ -17,6 +18,7 @@ const providerLabels = {
 document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
     initDragAndDrop();
+    initCsvDragAndDrop();
     initAiToggle();
     initAppAlert();
     loadLlmProviderStatus();
@@ -168,6 +170,90 @@ function handleFileSelect(file) {
     logTerminal(`[System] Ingested file: ${file.name} (${formatBytes(file.size)}). Ready for analysis.`, 'system');
 }
 
+// CSV File Drag and Drop
+function initCsvDragAndDrop() {
+    const csvDropzone = document.getElementById('csvDropzone');
+    const csvFileInput = document.getElementById('csvFileInput');
+    const csvFileList = document.getElementById('csvFileList');
+
+    csvDropzone.addEventListener('click', () => csvFileInput.click());
+
+    csvDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        csvDropzone.classList.add('dragover');
+    });
+
+    csvDropzone.addEventListener('dragleave', () => {
+        csvDropzone.classList.remove('dragover');
+    });
+
+    csvDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        csvDropzone.classList.remove('dragover');
+        const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv'));
+        if (files.length > 0) {
+            handleCsvFileSelect(files);
+        }
+    });
+
+    csvFileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files).filter(f => f.name.endsWith('.csv'));
+        if (files.length > 0) {
+            handleCsvFileSelect(files);
+        }
+    });
+}
+
+function handleCsvFileSelect(files) {
+    // Add new files to the list (avoid duplicates)
+    files.forEach(file => {
+        if (!selectedCsvFiles.find(f => f.name === file.name)) {
+            selectedCsvFiles.push(file);
+        }
+    });
+    
+    updateCsvFileList();
+    
+    // Log to terminal
+    files.forEach(file => {
+        logTerminal(`[CSV] Added parameterization file: ${file.name} (${formatBytes(file.size)})`, 'system');
+    });
+}
+
+function updateCsvFileList() {
+    const csvFileList = document.getElementById('csvFileList');
+    csvFileList.innerHTML = '';
+    
+    selectedCsvFiles.forEach((file, index) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'csv-file-item';
+        fileItem.innerHTML = `
+            <span class="csv-file-name">${file.name}</span>
+            <span class="csv-file-size">${formatBytes(file.size)}</span>
+            <button type="button" class="csv-file-remove" onclick="removeCsvFile(${index})" title="Remove file">×</button>
+        `;
+        csvFileList.appendChild(fileItem);
+    });
+    
+    // Show/hide hint
+    const hint = document.getElementById('csvHint');
+    if (selectedCsvFiles.length > 0) {
+        hint.textContent = `${selectedCsvFiles.length} CSV file(s) will be added as JMeter CSV Data Set Config elements`;
+        hint.classList.add('csv-active');
+    } else {
+        hint.textContent = 'CSV files will be added as JMeter CSV Data Set Config elements';
+        hint.classList.remove('csv-active');
+    }
+}
+
+function removeCsvFile(index) {
+    const removed = selectedCsvFiles.splice(index, 1);
+    if (removed.length > 0) {
+        logTerminal(`[CSV] Removed parameterization file: ${removed[0].name}`, 'system');
+    }
+    updateCsvFileList();
+}
+
 // Stats Range Sliders Value Updater
 function updateVal(badgeId, val) {
     const badge = document.getElementById(badgeId);
@@ -265,11 +351,22 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         'system'
     );
     logTerminal(`[Ingestion] Parsing spec: ${selectedFile.name}...`, 'system');
+    if (selectedCsvFiles.length > 0) {
+        logTerminal(`[CSV Data] Loading ${selectedCsvFiles.length} CSV file(s) for parameterization...`, 'system');
+        selectedCsvFiles.forEach(csv => {
+            logTerminal(`   -> ${csv.name}`, 'success');
+        });
+    }
     logTerminal(`[Execution Profile] users=${users}, ramp_up=${rampUp}s, duration=${duration}s, think_time=${thinkTime}ms, pacing=${pacing}ms.`, 'system');
 
     // Build form data
     const formData = new FormData();
     formData.append('file', selectedFile);
+    
+    // Add CSV files if any
+    selectedCsvFiles.forEach(csvFile => {
+        formData.append('csv_files', csvFile);
+    });
 
     const params = new URLSearchParams({
         users,
@@ -375,6 +472,14 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         // 4. Update Stats Dashboard
         const xmlIcon = document.getElementById('statXmlIcon');
         const dryRunIcon = document.getElementById('statDryRunIcon');
+
+        // Log CSV files info if any
+        if (data.csv_files && data.csv_files.length > 0) {
+            logTerminal(`[CSV Data] ${data.csv_files.length} CSV file(s) added to JMX:`, 'success');
+            data.csv_files.forEach(csv => {
+                logTerminal(`   -> ${csv.filename}: ${csv.variables.length} variables, ${csv.row_count} rows`, 'success');
+            });
+        }
 
         // XML Validation status
         if (validation.xml_validation_passed) {
