@@ -1,5 +1,6 @@
 import json
 import os
+from typing import List, Optional
 from fastapi import (
     APIRouter,
     UploadFile,
@@ -26,6 +27,10 @@ from app.services.llm_provider import (
     DEFAULT_MODELS,
     get_llm_config,
     is_llm_available
+)
+from app.services.csv_parser import (
+    parse_csv_file,
+    validate_csv_for_jmeter
 )
 
 router = APIRouter()
@@ -56,7 +61,8 @@ async def generate_from_file(
     ai_enabled: bool = Query(default=True),
     llm_provider: str | None = Query(default=None),
     llm_model: str | None = Query(default=None),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    csv_files: Optional[List[UploadFile]] = File(default=None)
 ):
     try:
         effective_provider = llm_provider if ai_enabled else "none"
@@ -83,6 +89,30 @@ async def generate_from_file(
         raw_content = await file.read()
         raw_content = raw_content.decode("utf-8", errors="ignore")
         print(f"File received: {file.filename}")
+
+        # =====================================
+        # 1.5. PROCESS CSV FILES (if any)
+        # =====================================
+        csv_data_list = []
+        if csv_files:
+            for csv_file in csv_files:
+                if csv_file.filename:
+                    csv_content = await csv_file.read()
+                    csv_content = csv_content.decode("utf-8", errors="ignore")
+                    
+                    parsed_csv = parse_csv_file(csv_content, csv_file.filename)
+                    
+                    if parsed_csv.get("error"):
+                        print(f"CSV parsing error for {csv_file.filename}: {parsed_csv['error']}")
+                        continue
+                    
+                    validation = validate_csv_for_jmeter(parsed_csv)
+                    if not validation["valid"]:
+                        print(f"CSV validation failed for {csv_file.filename}: {validation['errors']}")
+                        continue
+                    
+                    csv_data_list.append(parsed_csv)
+                    print(f"CSV file processed: {csv_file.filename} with {len(parsed_csv['variables'])} variables, {parsed_csv['row_count']} rows")
 
         # =====================================
         # 2. SCHEMA INGESTION & PARSING
@@ -136,7 +166,8 @@ async def generate_from_file(
                 "pacing": pacing
             },
             "flow": logical_flow,
-            "exclusion_regex": exclusion_regex
+            "exclusion_regex": exclusion_regex,
+            "csv_files": csv_data_list
         }
 
         # =====================================
@@ -193,6 +224,14 @@ async def generate_from_file(
                 "think_time": think_time,
                 "pacing": pacing
             },
+            "csv_files": [
+                {
+                    "filename": csv["filename"],
+                    "variables": csv["variables"],
+                    "row_count": csv["row_count"]
+                }
+                for csv in csv_data_list
+            ],
             "flow": logical_flow,
             "endpoints": [
                 {
