@@ -232,19 +232,19 @@ svg[data-lucide] {
 
 /* Section Cards styling */
 .section-card {
-    padding: 24px;
+    padding: 16px;
 }
 
 .section-title {
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     font-weight: 700;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     color: var(--neon-blue);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    padding-bottom: 12px;
+    padding-bottom: 8px;
 }
 
 .section-title i {
@@ -260,16 +260,17 @@ svg[data-lucide] {
 /* Dropzone styling */
 .dropzone {
     border: 2px dashed rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
-    padding: 32px 16px;
+    border-radius: 10px;
+    padding: 16px 12px;
     text-align: center;
     cursor: pointer;
     background: rgba(255, 255, 255, 0.01);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
+    gap: 10px;
 }
 
 .dropzone:hover, .dropzone.dragover {
@@ -279,20 +280,20 @@ svg[data-lucide] {
 }
 
 .upload-icon {
-    width: 36px !important;
-    height: 36px !important;
+    width: 24px !important;
+    height: 24px !important;
     color: var(--text-muted);
     transition: all 0.3s;
 }
 
 .dropzone:hover .upload-icon {
     color: var(--neon-blue);
-    transform: translateY(-4px) scale(1.05);
+    transform: translateY(-2px) scale(1.05);
     filter: drop-shadow(0 0 6px var(--neon-blue));
 }
 
 .dropzone-text {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: var(--text-primary);
 }
 
@@ -301,21 +302,21 @@ svg[data-lucide] {
 }
 
 .dropzone-sub {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
+    display: none;
 }
 
 .file-badge {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: rgba(0, 242, 254, 0.08);
     border: 1px solid rgba(0, 242, 254, 0.2);
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 0.7rem;
     color: var(--neon-blue);
-    margin-top: 8px;
     font-family: var(--font-mono);
     max-width: 100%;
 }
@@ -329,16 +330,17 @@ svg[data-lucide] {
 /* CSV Dropzone styling */
 .csv-dropzone {
     border: 2px dashed rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
-    padding: 24px 16px;
+    border-radius: 10px;
+    padding: 12px 12px;
     text-align: center;
     cursor: pointer;
     background: rgba(255, 255, 255, 0.01);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
+    gap: 8px;
 }
 
 .csv-dropzone:hover, .csv-dropzone.dragover {
@@ -348,20 +350,20 @@ svg[data-lucide] {
 }
 
 .csv-dropzone .upload-icon {
-    width: 28px !important;
-    height: 28px !important;
+    width: 20px !important;
+    height: 20px !important;
     color: var(--text-muted);
     transition: all 0.3s;
 }
 
 .csv-dropzone:hover .upload-icon {
     color: var(--neon-green);
-    transform: translateY(-4px) scale(1.05);
+    transform: translateY(-2px) scale(1.05);
     filter: drop-shadow(0 0 6px var(--neon-green));
 }
 
 .csv-dropzone .dropzone-text {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: var(--text-primary);
 }
 
@@ -370,27 +372,28 @@ svg[data-lucide] {
 }
 
 .csv-dropzone .dropzone-sub {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
+    display: none;
 }
 
 .csv-file-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     width: 100%;
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 .csv-file-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: rgba(57, 255, 20, 0.08);
     border: 1px solid rgba(57, 255, 20, 0.2);
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 0.8rem;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
 }
 
 .csv-file-name {
@@ -404,7 +407,7 @@ svg[data-lucide] {
 
 .csv-file-size {
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: 0.65rem;
 }
 
 .csv-file-remove {
@@ -412,8 +415,8 @@ svg[data-lucide] {
     border: none;
     color: var(--neon-red);
     cursor: pointer;
-    font-size: 1.1rem;
-    padding: 0 4px;
+    font-size: 0.9rem;
+    padding: 0 2px;
     line-height: 1;
     opacity: 0.7;
     transition: opacity 0.2s;
@@ -424,9 +427,9 @@ svg[data-lucide] {
 }
 
 #csvHint {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
-    margin-top: 8px;
+    margin-top: 6px;
     transition: color 0.3s;
 }
 
@@ -440,16 +443,16 @@ svg[data-lucide] {
 
 /* Slider Controls */
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 14px;
 }
 
 .form-group label {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
+    gap: 6px;
+    font-size: 0.75rem;
     color: var(--text-muted);
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     font-weight: 500;
 }
 
