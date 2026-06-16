@@ -365,6 +365,7 @@ svg[data-lucide] {
 .csv-dropzone .dropzone-text {
     font-size: 0.75rem;
     color: var(--text-primary);
+    white-space: nowrap;
 }
 
 .csv-dropzone .dropzone-text strong {
