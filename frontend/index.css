@@ -274,9 +274,9 @@ svg[data-lucide] {
 }
 
 .dropzone:hover, .dropzone.dragover {
-    border-color: var(--neon-blue);
-    background: rgba(0, 242, 254, 0.02);
-    box-shadow: inset 0 0 15px rgba(0, 242, 254, 0.04);
+    border-color: var(--neon-green);
+    background: rgba(57, 255, 20, 0.02);
+    box-shadow: inset 0 0 15px rgba(57, 255, 20, 0.04);
 }
 
 .upload-icon {
@@ -287,9 +287,9 @@ svg[data-lucide] {
 }
 
 .dropzone:hover .upload-icon {
-    color: var(--neon-blue);
+    color: var(--neon-green);
     transform: translateY(-2px) scale(1.05);
-    filter: drop-shadow(0 0 6px var(--neon-blue));
+    filter: drop-shadow(0 0 6px var(--neon-green));
 }
 
 .dropzone-text {
@@ -298,7 +298,7 @@ svg[data-lucide] {
 }
 
 .dropzone-text strong {
-    color: var(--neon-blue);
+    color: var(--neon-green);
 }
 
 .dropzone-sub {
@@ -311,12 +311,12 @@ svg[data-lucide] {
     display: flex;
     align-items: center;
     gap: 6px;
-    background: rgba(0, 242, 254, 0.08);
-    border: 1px solid rgba(0, 242, 254, 0.2);
+    background: rgba(57, 255, 20, 0.08);
+    border: 1px solid rgba(57, 255, 20, 0.2);
     padding: 4px 10px;
     border-radius: 16px;
     font-size: 0.7rem;
-    color: var(--neon-blue);
+    color: var(--neon-green);
     font-family: var(--font-mono);
     max-width: 100%;
 }
@@ -856,6 +856,41 @@ svg.stat-bg-icon {
 .tab-pane.active {
     display: flex;
     flex-direction: column;
+}
+
+/* Custom Scrollbar - Cyan/Neon Blue */
+.tab-pane::-webkit-scrollbar,
+.terminal-body::-webkit-scrollbar,
+.code-preview::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.tab-pane::-webkit-scrollbar-track,
+.terminal-body::-webkit-scrollbar-track,
+.code-preview::-webkit-scrollbar-track {
+    background: rgba(0, 242, 254, 0.05);
+    border-radius: 4px;
+}
+
+.tab-pane::-webkit-scrollbar-thumb,
+.terminal-body::-webkit-scrollbar-thumb,
+.code-preview::-webkit-scrollbar-thumb {
+    background: rgba(0, 242, 254, 0.3);
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+.tab-pane::-webkit-scrollbar-thumb:hover,
+.terminal-body::-webkit-scrollbar-thumb:hover,
+.code-preview::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 242, 254, 0.5);
+}
+
+.tab-pane::-webkit-scrollbar-corner,
+.terminal-body::-webkit-scrollbar-corner,
+.code-preview::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 /* DAG Flow Tab */
