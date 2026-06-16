@@ -209,70 +209,143 @@ def heal_failures_with_ai(failures, original_endpoints, test_plan, iteration, ll
     prompt = f"""
     You are a Senior Performance Engineer and Self-Healing Automation Agent.
     We ran a dry-run iteration of our generated JMeter load test script, and it returned failures!
-    Your goal is to inspect the failed samplers, review the original capture history, diagnose the root cause (e.g. a missed authentication token, bearer token, CSRF cookie, or incorrect header), and recommend precise JMX repairs.
+    Your goal is to inspect the failed samplers, review the original capture history, diagnose the root cause, and recommend precise JMX repairs.
 
-    Dry-Run Failure Log:
+    DRY-RUN FAILURE LOG:
     {json.dumps(failures, indent=2)}
 
-    Details of Failed Requests from Capture:
+    DETAILS OF FAILED REQUESTS FROM CAPTURE:
     {json.dumps(failed_trace_details, indent=2)}
 
-    Upstream Ingestion History (preceding and surrounding requests/responses):
+    UPSTREAM INGESTION HISTORY (preceding and surrounding requests/responses):
     {json.dumps(upstream_history, indent=2)}
 
-    Active Extractor Variables Already Configured:
+    ACTIVE EXTRACTOR VARIABLES ALREADY CONFIGURED:
     {json.dumps(active_extractors, indent=2)}
 
-    Tasks:
-    1. DIAGNOSE: Why did the sampler fail? (E.g., 401 Unauthorized usually means a missing JWT or Authorization header, 415 Unsupported Media Type means wrong Content-Type header, CSRF token mismatch, etc.).
-    2. LOCATE Birth of Token: Look closely at "Upstream Ingestion History". Find which response body or header contains the token value used in the failed request's headers or body.
-    3. CREATE REPAIR PLAN:
-       - If the failure is due to a missing/incorrect HEADER (e.g., Content-Type, Authorization, X-CSRF-Token), use "header_fix" to add or update headers.
-       - If the failure is due to a missing dynamic TOKEN, use "new_extractor" to create an extractor and "replacements" to replace hardcoded values.
-       - You can use BOTH "header_fix" and "new_extractor" if needed (e.g., extract a token AND add a Content-Type header).
+    COMMON FAILURE PATTERNS AND FIXES:
+    ─────────────────────────────────────
+    1. **401 Unauthorized**: Missing or expired JWT/Bearer token
+       → Use "new_extractor" to extract token from upstream + "replacements" to replace hardcoded values
+    
+    2. **415 Unsupported Media Type**: Wrong or missing Content-Type header
+       → Use "content_type_fix" to set the correct Content-Type based on request body
+       → Common Content-Types: "application/json", "application/x-www-form-urlencoded", "multipart/form-data", "text/xml"
+    
+    3. **403 Forbidden**: CSRF token mismatch or missing security header
+       → Use "csrf_fix" to extract CSRF token and add it to headers
+       → CSRF tokens can be found in:
+         • Response body (JSON): {{"csrf_token": "...", "_csrf": "...", "csrfToken": "..."}}
+         • Response body (HTML): <input type="hidden" name="_csrf" value="...">
+         • Response headers: X-CSRF-Token, X-XSRF-Token, Csrf-Token
+         • Cookies: XSRF-TOKEN, CSRF-TOKEN, _csrf
+    
+    4. **400 Bad Request**: Missing required header or parameter
+       → Use "header_fix" to add missing headers
+    
+    5. **404 Not Found**: Incorrect URL (rare, usually a path issue)
+       → Provide diagnosis only, no auto-fix possible
+    
+    6. **500 Internal Server Error**: Server-side issue
+       → Provide diagnosis only, may need server-side investigation
 
-    Respond with a strictly formatted JSON object:
+    CSRF TOKEN PATTERNS:
+    ─────────────────────
+    Common CSRF token variable names:
+    • _csrf, csrf_token, csrfToken, XSRF-TOKEN, X-CSRF-Token
+    • authenticity_token (Ruby on Rails)
+    • __RequestVerificationToken (ASP.NET)
+    • _token (Laravel, PHP)
+    
+    Common CSRF token locations:
+    • JSON response body: $.csrf_token, $._csrf, $.data.csrf_token
+    • HTML meta tag: <meta name="csrf-token" content="...">
+    • HTML form field: <input name="_csrf" value="...">
+    • Response header: X-CSRF-Token, X-XSRF-Token
+    • Cookie: XSRF-TOKEN, CSRF-TOKEN
+
+    TASKS:
+    ───────
+    1. DIAGNOSE: Identify the exact root cause of the failure
+    2. CLASSIFY: Determine the failure type (401, 415, 403, etc.)
+    3. REPAIR: Choose the appropriate fix method:
+       - For CSRF token issues (403): Use "csrf_fix"
+       - For Content-Type issues (415): Use "content_type_fix"
+       - For missing headers: Use "header_fix"
+       - For dynamic tokens: Use "new_extractor" + "replacements"
+       - For multiple issues: Use combination of above
+
+    CONTENT-TYPE DETECTION RULES:
+    ──────────────────────────────
+    • If request body starts with "{{" or "[" → Use "application/json"
+    • If request body contains "key=value&" → Use "application/x-www-form-urlencoded"
+    • If request body contains "------WebKit" or "boundary=" → Use "multipart/form-data"
+    • If request body starts with "<?xml" or "<" → Use "text/xml" or "application/xml"
+    • If request is GET/DELETE with no body → No Content-Type needed
+    • If request has binary data → Use "application/octet-stream"
+
+    RESPOND WITH THIS EXACT JSON FORMAT:
     {{
-        "diagnosis": "Why it failed, identify the root cause.",
-        "action_taken": "Detailed remediation action described clearly.",
+        "diagnosis": "Detailed explanation of why the failure occurred",
+        "action_taken": "Clear description of what fix was applied",
+        "failure_type": "401" | "415" | "403" | "400" | "404" | "500" | "other",
         "new_extractor": {{
-            "upstream_index": (integer, the index from Upstream Ingestion History where the token was generated),
+            "upstream_index": (integer, where token was generated),
             "type": "json_extractor" | "boundary_extractor" | "regex_extractor" | "header_extractor",
-            "var_name": "c_tokenName" (a clean, descriptive variable name prefixed with c_),
-            "json_path": "$.path.to.token" (if type is json_extractor, else null),
-            "left_boundary": "left border" (if boundary_extractor, else null),
-            "right_boundary": "right border" (if boundary_extractor, else null),
-            "regex": "regex pattern" (if regex_extractor or header_extractor, else null),
-            "header_name": "header name" (if header_extractor, else null)
+            "var_name": "c_descriptiveName",
+            "json_path": "$.path.to.value" (if json_extractor),
+            "left_boundary": "text" (if boundary_extractor),
+            "right_boundary": "text" (if boundary_extractor),
+            "regex": "pattern" (if regex/header_extractor),
+            "header_name": "Header-Name" (if header_extractor)
         }},
         "replacements": [
             {{
-                "request_index": (integer, index of request to modify),
-                "token_value": "exact hardcoded token string to replace",
-                "var_name": "c_tokenName" (must match the var_name of new_extractor above)
+                "request_index": (integer),
+                "token_value": "exact hardcoded value to replace",
+                "var_name": "c_descriptiveName"
             }}
         ],
         "header_fix": {{
-            "request_index": (integer, index of request to add/fix headers),
+            "request_index": (integer),
             "headers_to_add": [
-                {{
-                    "key": "Header-Name",
-                    "value": "Header-Value (can use ${{variable}} syntax)"
-                }}
+                {{"key": "Header-Name", "value": "Header-Value (use ${{variable}} for dynamic values)"}}
             ],
-            "headers_to_remove": [
-                "Header-Name-To-Remove"
-            ]
+            "headers_to_remove": ["Header-Name-To-Remove"]
+        }},
+        "content_type_fix": {{
+            "request_index": (integer, index of request to fix),
+            "content_type": "application/json" | "application/x-www-form-urlencoded" | "multipart/form-data" | "text/xml" | "application/xml",
+            "reason": "Why this Content-Type was chosen based on request body analysis"
+        }},
+        "csrf_fix": {{
+            "upstream_index": (integer, index of request that returns CSRF token),
+            "csrf_token_location": "body" | "header" | "cookie",
+            "csrf_token_path": "$.csrf_token" | "_csrf" | "X-CSRF-Token" | "XSRF-TOKEN" (path to extract token),
+            "csrf_extractor": {{
+                "type": "json_extractor" | "regex_extractor" | "boundary_extractor" | "header_extractor",
+                "var_name": "c_csrfToken",
+                "json_path": "$.csrf_token" (if json_extractor),
+                "regex": "pattern" (if regex_extractor),
+                "header_name": "X-CSRF-Token" (if header_extractor),
+                "cookie_name": "XSRF-TOKEN" (if cookie)
+            }},
+            "csrf_header_to_add": {{
+                "request_index": (integer, index of request to add header),
+                "header_name": "X-CSRF-Token" | "X-XSRF-Token" | "_csrf",
+                "header_value": "${{c_csrfToken}}"
+            }}
         }}
     }}
 
-    IMPORTANT NOTES:
-    - "new_extractor" is ONLY needed when you need to extract a dynamic token from an upstream response.
-    - "header_fix" is used to add missing headers or fix incorrect headers (e.g., Content-Type, Authorization).
-    - "replacements" is used to replace hardcoded token values with variable expressions.
-    - You can omit "new_extractor" and "replacements" if the fix only requires header changes.
-    - You can omit "header_fix" if the fix only requires token extraction.
-    - Return ONLY the valid raw JSON object. No markdown wrappers.
+    IMPORTANT RULES:
+    ─────────────────
+    • "csrf_fix" is specifically for CSRF token issues (403 Forbidden)
+    • "content_type_fix" is specifically for Content-Type headers (415 errors)
+    • "header_fix" is for other headers (Authorization, etc.)
+    • You can use MULTIPLE fix types if needed (e.g., csrf_fix + content_type_fix)
+    • For CSRF tokens, ALWAYS extract from upstream first, then add to downstream headers
+    • Return ONLY the raw JSON object, no markdown or explanations
     """
 
     try:
@@ -420,7 +493,143 @@ def apply_remediation(test_plan, original_endpoints, healing_action, llm_provide
                     })
                     print(f"Added header '{header_key}' to request index {req_idx}")
 
-    # 4. Reconstruct logical flow using updated endpoints
+    # 4. Apply Content-Type fixes (specifically for 415 errors)
+    content_type_fix = healing_action.get("content_type_fix")
+    if content_type_fix and isinstance(content_type_fix, dict):
+        req_idx = content_type_fix.get("request_index")
+        content_type = content_type_fix.get("content_type", "")
+        reason = content_type_fix.get("reason", "")
+        
+        if req_idx is not None and 0 <= req_idx < len(original_endpoints) and content_type:
+            target_ep = original_endpoints[req_idx]
+            
+            # Ensure headers list exists
+            if "headers" not in target_ep:
+                target_ep["headers"] = []
+            
+            # Check if Content-Type header already exists
+            content_type_exists = False
+            for existing_header in target_ep["headers"]:
+                if existing_header.get("key", "").lower() == "content-type":
+                    # Update existing Content-Type header
+                    old_value = existing_header.get("value", "")
+                    existing_header["value"] = content_type
+                    content_type_exists = True
+                    print(f"[CONTENT-TYPE FIX] Updated Content-Type in request index {req_idx}: '{old_value}' -> '{content_type}'")
+                    if reason:
+                        print(f"[CONTENT-TYPE FIX] Reason: {reason}")
+                    break
+            
+            # Add new Content-Type header if it doesn't exist
+            if not content_type_exists:
+                target_ep["headers"].append({
+                    "key": "Content-Type",
+                    "value": content_type
+                })
+                print(f"[CONTENT-TYPE FIX] Added Content-Type '{content_type}' to request index {req_idx}")
+                if reason:
+                    print(f"[CONTENT-TYPE FIX] Reason: {reason}")
+            
+            # Also update body_mode if Content-Type suggests a specific format
+            if content_type == "application/json" and target_ep.get("body_mode") != "raw":
+                print(f"[CONTENT-TYPE FIX] Note: Request body_mode is '{target_ep.get('body_mode')}' but Content-Type is 'application/json'. Consider updating body_mode to 'raw'.")
+            elif content_type == "application/x-www-form-urlencoded" and target_ep.get("body_mode") != "urlencoded":
+                print(f"[CONTENT-TYPE FIX] Note: Request body_mode is '{target_ep.get('body_mode')}' but Content-Type is 'application/x-www-form-urlencoded'. Consider updating body_mode to 'urlencoded'.")
+
+    # 5. Apply CSRF token fixes (for 403 Forbidden errors)
+    csrf_fix = healing_action.get("csrf_fix")
+    if csrf_fix and isinstance(csrf_fix, dict):
+        upstream_idx = csrf_fix.get("upstream_index")
+        csrf_extractor = csrf_fix.get("csrf_extractor", {})
+        csrf_header = csrf_fix.get("csrf_header_to_add", {})
+        csrf_token_location = csrf_fix.get("csrf_token_location", "body")
+        csrf_token_path = csrf_fix.get("csrf_token_path", "")
+        
+        # Step 5a: Add CSRF extractor to upstream endpoint
+        if upstream_idx is not None and 0 <= upstream_idx < len(original_endpoints) and csrf_extractor:
+            upstream_ep = original_endpoints[upstream_idx]
+            
+            # Ensure extractors list exists
+            if "extractors" not in upstream_ep:
+                upstream_ep["extractors"] = []
+            
+            # Build extractor object based on type
+            extractor_type = csrf_extractor.get("type", "json_extractor")
+            var_name = csrf_extractor.get("var_name", "c_csrfToken")
+            
+            extractor_obj = {
+                "type": extractor_type,
+                "var_name": var_name,
+                "json_path": csrf_extractor.get("json_path"),
+                "left_boundary": csrf_extractor.get("left_boundary"),
+                "right_boundary": csrf_extractor.get("right_boundary"),
+                "regex": csrf_extractor.get("regex"),
+                "header_name": csrf_extractor.get("header_name")
+            }
+            
+            # Check if similar extractor already exists
+            extractor_exists = False
+            for existing_ext in upstream_ep["extractors"]:
+                if existing_ext.get("var_name") == var_name:
+                    extractor_exists = True
+                    print(f"[CSRF FIX] Extractor '{var_name}' already exists on upstream index {upstream_idx}")
+                    break
+                if extractor_type == "json_extractor" and existing_ext.get("type") == "json_extractor":
+                    if existing_ext.get("json_path") == extractor_obj.get("json_path"):
+                        extractor_exists = True
+                        print(f"[CSRF FIX] Similar JSON extractor found, reusing '{existing_ext.get('var_name')}'")
+                        var_name = existing_ext.get("var_name")
+                        break
+                elif extractor_type == "regex_extractor" and existing_ext.get("type") == "regex_extractor":
+                    if existing_ext.get("regex") == extractor_obj.get("regex"):
+                        extractor_exists = True
+                        print(f"[CSRF FIX] Similar regex extractor found, reusing '{existing_ext.get('var_name')}'")
+                        var_name = existing_ext.get("var_name")
+                        break
+            
+            if not extractor_exists:
+                upstream_ep["extractors"].append(extractor_obj)
+                print(f"[CSRF FIX] Added {extractor_type} extractor '{var_name}' to upstream index {upstream_idx}")
+                print(f"[CSRF FIX] CSRF token location: {csrf_token_location}, path: {csrf_token_path}")
+        
+        # Step 5b: Add CSRF header to downstream request
+        if csrf_header and isinstance(csrf_header, dict):
+            downstream_idx = csrf_header.get("request_index")
+            header_name = csrf_header.get("header_name", "X-CSRF-Token")
+            header_value = csrf_header.get("header_value", f"${{{var_name}}}")
+            
+            if downstream_idx is not None and 0 <= downstream_idx < len(original_endpoints):
+                downstream_ep = original_endpoints[downstream_idx]
+                
+                # Ensure headers list exists
+                if "headers" not in downstream_ep:
+                    downstream_ep["headers"] = []
+                
+                # Check if CSRF header already exists
+                csrf_header_exists = False
+                for existing_header in downstream_ep["headers"]:
+                    if existing_header.get("key", "").lower() == header_name.lower():
+                        # Update existing CSRF header
+                        old_value = existing_header.get("value", "")
+                        existing_header["value"] = header_value
+                        csrf_header_exists = True
+                        print(f"[CSRF FIX] Updated '{header_name}' header in downstream index {downstream_idx}: '{old_value}' -> '{header_value}'")
+                        break
+                
+                # Add new CSRF header if it doesn't exist
+                if not csrf_header_exists:
+                    downstream_ep["headers"].append({
+                        "key": header_name,
+                        "value": header_value
+                    })
+                    print(f"[CSRF FIX] Added '{header_name}' header to downstream index {downstream_idx}: '{header_value}'")
+        
+        # Step 5c: Handle cookie-based CSRF tokens
+        if csrf_token_location == "cookie" and csrf_extractor:
+            cookie_name = csrf_extractor.get("cookie_name", "XSRF-TOKEN")
+            print(f"[CSRF FIX] Note: CSRF token is cookie-based. Ensure Cookie Manager is configured to send '{cookie_name}' cookie.")
+
+    # 6. Reconstruct logical flow using updated endpoints
     base_think_time = test_plan.get("thread_group", {}).get("think_time", 1500)
     updated_flow = reconstruct_logical_flow(
         original_endpoints,
