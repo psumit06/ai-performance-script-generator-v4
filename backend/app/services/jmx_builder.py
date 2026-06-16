@@ -2,7 +2,8 @@ from app.services.jmeter_components import (
     build_test_plan,
     build_thread_group,
     build_cookie_manager,
-    build_transaction_controller
+    build_transaction_controller,
+    build_csv_dataset
 )
 from app.services.xml_helpers import (
     string_prop,
@@ -377,6 +378,7 @@ def build_jmx(test_plan):
     pacing = int(test_plan["thread_group"].get("pacing", 0) or 0)
     flow = test_plan.get("flow", [])
     exclusion_regex = test_plan.get("exclusion_regex", "")
+    csv_files = test_plan.get("csv_files", [])
 
     xml = """<?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2"
@@ -397,6 +399,15 @@ jmeter="5.6.3">
     # 3. Cookie Manager
     xml += build_cookie_manager()
     xml += "<hashTree/>"
+
+    # 3.5. CSV Data Set Config elements (if any CSV files uploaded)
+    for csv_file in csv_files:
+        filename = csv_file.get("filename", "")
+        variables = csv_file.get("variables", [])
+        delimiter = csv_file.get("delimiter", ",")
+        if filename and variables:
+            xml += build_csv_dataset(filename, variables, delimiter)
+            xml += "<hashTree/>"
 
     # 4. HTTP Request Defaults with Generated URL exclusions
     xml += f"""

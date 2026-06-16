@@ -1,3 +1,4 @@
+from typing import List
 from app.services.xml_helpers import (
     string_prop,
     bool_prop,
@@ -115,19 +116,35 @@ enabled="true">
 """
 
 
-def build_csv_dataset():
-
+def build_csv_dataset(filename: str, variable_names: List[str], delimiter: str = ","):
+    """
+    Build a CSV Data Set Config element for JMeter.
+    
+    Args:
+        filename: Name of the CSV file (will be prefixed with ${Datapath}/)
+        variable_names: List of variable names from CSV headers
+        delimiter: CSV delimiter character
+        
+    Returns:
+        JMX XML string for CSV Data Set Config
+    """
+    # Build the full path using JMeter variable ${Datapath}
+    csv_path = f"${{Datapath}}/{filename}"
+    
+    # Join variable names with comma
+    variables_str = ",".join(variable_names)
+    
     return f"""
 <CSVDataSet guiclass="TestBeanGUI"
 testclass="CSVDataSet"
-testname="CSV User Data"
+testname="CSV Data - {filename}"
 enabled="true">
 
-{string_prop("filename", "users.csv")}
+{string_prop("filename", csv_path)}
 
-{string_prop("variableNames", "username,password")}
+{string_prop("variableNames", variables_str)}
 
-{string_prop("delimiter", ",")}
+{string_prop("delimiter", delimiter)}
 
 {bool_prop("quotedData", False)}
 
