@@ -163,16 +163,13 @@ function handleFileSelect(file) {
         ? file.name.substring(0, maxLen) + '...' 
         : file.name;
     
-    // Update the text to show filename
     dropzoneText.textContent = displayName;
     dropzone.classList.add('has-file');
-    
     generateBtn.disabled = false;
     downloadBtn.disabled = true;
     downloadBtnMain.disabled = true;
     generatedJmxContent = null;
     
-    // Auto print file ready status in terminal
     logTerminal(`[System] Ingested file: ${file.name} (${formatBytes(file.size)}). Ready for analysis.`, 'system');
 }
 
