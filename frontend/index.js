@@ -452,14 +452,16 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         if (data.healing_history.length === 0 && validation.jmeter_executed) {
             logTerminal(`[Dry Run Validation] Iteration 1: XML Passed. Execution ${data.success_rate}% success rate. Script clean.`, 'success');
         } else {
-            data.healing_history.forEach(log => {
+            data.healing_history.forEach(entry => {
                 const rateText = data.success_rate === null || data.success_rate === undefined ? 'not available' : `${data.success_rate}%`;
-                logTerminal(`[Dry Run Validation] Iteration ${log.iteration}: XML Passed. Execution rate=${rateText}. Errors detected!`, 'error');
-                log.failures.forEach(f => {
-                    logTerminal(`   -> Fail: ${f.sampler_label} returned [${f.response_code} ${f.response_message}]`, 'error');
-                });
-                logTerminal(`[AI Self-Healing Agent] Diagnosis: ${log.diagnosis}`, 'thought');
-                logTerminal(`[AI Self-Healing Agent] Action Taken: ${log.action_taken}`, 'highlight');
+                logTerminal(`[Dry Run Validation] Iteration ${entry.iteration}: XML Passed. Execution rate=${rateText}. Errors detected!`, 'error');
+                if (entry.failures && Array.isArray(entry.failures)) {
+                    entry.failures.forEach(f => {
+                        logTerminal(`   -> Fail: ${f.sampler_label} returned [${f.response_code} ${f.response_message}]`, 'error');
+                    });
+                }
+                logTerminal(`[AI Self-Healing Agent] Diagnosis: ${entry.diagnosis}`, 'thought');
+                logTerminal(`[AI Self-Healing Agent] Action Taken: ${entry.action_taken}`, 'highlight');
             });
             
             if (data.success) {
