@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from .api.routes_generate import router as generate_router
 
@@ -60,5 +60,10 @@ def frontend_js():
 @app.get("/health")
 def health():
     return {"status": "all ok"}
+
+@app.get("/favicon.ico")
+def favicon():
+    # Return 204 No Content to suppress 404 errors
+    return Response(status_code=204)
 
 app.include_router(generate_router, prefix="/api")
