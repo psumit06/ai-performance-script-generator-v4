@@ -4,12 +4,51 @@ import csv
 import shutil
 import xml.etree.ElementTree as ET
 
+def get_jmeter_path():
+    """
+    Get JMeter binary path from environment or common locations.
+    Returns platform-appropriate path.
+    """
+    # Check environment variable first
+    jmeter_path = os.getenv("JMETER_BIN")
+    if jmeter_path:
+        return jmeter_path
+    
+    # Common installation paths
+    common_paths = [
+        # Windows
+        r"C:\apache-jmeter-5.3\bin\jmeter.bat",
+        r"C:\apache-jmeter-5.6.3\bin\jmeter.bat",
+        r"C:\Program Files\apache-jmeter\bin\jmeter.bat",
+        # Linux/Mac
+        "/usr/local/bin/jmeter",
+        "/opt/jmeter/bin/jmeter",
+        os.path.expanduser("~/jmeter/bin/jmeter"),
+    ]
+    
+    for path in common_paths:
+        if os.path.exists(path):
+            return path
+    
+    # Try to find in PATH
+    jmeter_in_path = shutil.which("jmeter")
+    if jmeter_in_path:
+        return jmeter_in_path
+    
+    # Default fallback (will show helpful error if not found)
+    import platform
+    if platform.system() == "Windows":
+        return r"C:\apache-jmeter-5.3\bin\jmeter.bat"
+    else:
+        return "/usr/local/bin/jmeter"
+
+
 def run_jmeter(jmx_path):
     """
     Executes a dry-run iteration of the JMeter script in headless mode,
     clearing previous results first, and parses the JTL results file.
     """
-    jmeter_path = os.getenv("JMETER_BIN", r"C:\apache-jmeter-5.3\bin\jmeter.bat")
+    jmeter_path = get_jmeter_path()
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     output_dir = os.path.join(base_dir, "output")
     jtl_path = os.path.join(output_dir, "results.jtl")
