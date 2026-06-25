@@ -233,6 +233,7 @@ svg[data-lucide] {
 /* Section Cards styling */
 .section-card {
     padding: 16px;
+    overflow: hidden;
 }
 
 .section-title {
@@ -259,30 +260,36 @@ svg[data-lucide] {
 
 /* Dropzone styling */
 .dropzone {
-    border: 2px dashed rgba(255, 255, 255, 0.12);
-    border-radius: 10px;
-    padding: 16px 12px;
+    border: 2px dashed rgba(255, 255, 255, 0.12) !important;
+    border-radius: 10px !important;
+    padding: 12px !important;
     cursor: pointer;
     background: rgba(255, 255, 255, 0.01);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 10px;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    overflow: hidden !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    flex-wrap: nowrap !important;
 }
 
 .dropzone:hover, .dropzone.dragover {
-    border-color: var(--neon-green);
+    border-color: var(--neon-green) !important;
     background: rgba(57, 255, 20, 0.02);
     box-shadow: inset 0 0 15px rgba(57, 255, 20, 0.04);
 }
 
 .upload-icon {
-    width: 24px !important;
-    height: 24px !important;
+    width: 16px !important;
+    height: 16px !important;
     color: var(--text-muted);
     transition: all 0.3s;
+    flex-shrink: 0 !important;
 }
 
 .dropzone:hover .upload-icon {
@@ -292,39 +299,51 @@ svg[data-lucide] {
 }
 
 .dropzone-text {
-    font-size: 0.8rem;
+    font-size: 0.7rem !important;
     color: var(--text-primary);
-    text-align: left;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    flex-shrink: 1 !important;
+    min-width: 0 !important;
 }
 
 .dropzone-text strong {
     color: var(--neon-green);
 }
 
-.dropzone-sub {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    display: none;
+/* Hide default text when file is selected */
+.dropzone.has-file .dropzone-text {
+    display: none !important;
 }
 
 .file-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    display: none !important;
+}
+
+.file-badge:not(.hidden) {
+    display: block !important;
     background: rgba(57, 255, 20, 0.08);
     border: 1px solid rgba(57, 255, 20, 0.2);
-    padding: 4px 10px;
-    border-radius: 16px;
-    font-size: 0.7rem;
+    padding: 4px 8px !important;
+    border-radius: 10px !important;
+    font-size: 0.65rem !important;
     color: var(--neon-green);
     font-family: var(--font-mono);
-    max-width: 100%;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: calc(100% - 40px) !important;
+    flex-shrink: 1 !important;
+    min-width: 0 !important;
 }
 
 .file-badge span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: block !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 100% !important;
 }
 
 /* CSV Dropzone styling */
@@ -338,8 +357,11 @@ svg[data-lucide] {
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 8px;
+    overflow: hidden;
+    min-width: 0;
+    width: 100%;
 }
 
 .csv-dropzone:hover, .csv-dropzone.dragover {
@@ -353,6 +375,7 @@ svg[data-lucide] {
     height: 20px !important;
     color: var(--text-muted);
     transition: all 0.3s;
+    flex-shrink: 0;
 }
 
 .csv-dropzone:hover .upload-icon {
@@ -365,6 +388,8 @@ svg[data-lucide] {
     font-size: 0.75rem;
     color: var(--text-primary);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .csv-dropzone .dropzone-text strong {
@@ -382,7 +407,7 @@ svg[data-lucide] {
     flex-direction: column;
     gap: 4px;
     width: 100%;
-    margin-top: 6px;
+    margin-top: 8px;
 }
 
 .csv-file-item {
@@ -394,6 +419,8 @@ svg[data-lucide] {
     padding: 5px 8px;
     border-radius: 6px;
     font-size: 0.7rem;
+    overflow: hidden;
+    min-width: 0;
 }
 
 .csv-file-name {
