@@ -38,10 +38,8 @@
                     <h2 class="section-title"><i data-lucide="file-up"></i> Schema Ingestion</h2>
                     <div class="dropzone" id="dropzone">
                         <input type="file" id="fileInput" accept=".har,.json" style="display: none;">
-                        <div class="dropzone-content" id="dropzoneContent">
-                            <i data-lucide="cloud-lightning" class="upload-icon"></i>
-                            <span class="dropzone-text">Drop HAR or Postman</span>
-                        </div>
+                        <i data-lucide="cloud-lightning" class="upload-icon"></i>
+                        <span class="dropzone-text" id="dropzoneText">Drop HAR or Postman</span>
                     </div>
                 </div>
 
@@ -50,10 +48,8 @@
                     <h2 class="section-title"><i data-lucide="file-text"></i> CSV Data Files (Optional)</h2>
                     <div class="csv-dropzone" id="csvDropzone">
                         <input type="file" id="csvFileInput" accept=".csv" multiple style="display: none;">
-                        <div class="dropzone-content">
-                            <i data-lucide="upload" class="upload-icon"></i>
-                            <span class="dropzone-text">Drop <strong>CSV</strong> for parameterization</span>
-                        </div>
+                        <i data-lucide="upload" class="upload-icon"></i>
+                        <span class="dropzone-text">Drop <strong>CSV</strong> for parameterization</span>
                     </div>
                     <div class="csv-file-list" id="csvFileList"></div>
                     <div class="field-hint" id="csvHint">CSV files will be added as JMeter CSV Data Set Config elements</div>

@@ -266,6 +266,10 @@ svg[data-lucide] {
     cursor: pointer;
     background: rgba(255, 255, 255, 0.01);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     overflow: hidden;
 }
 
@@ -275,24 +279,16 @@ svg[data-lucide] {
     box-shadow: inset 0 0 15px rgba(57, 255, 20, 0.04);
 }
 
-.dropzone-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    overflow: hidden;
-}
-
 .upload-icon {
-    width: 18px !important;
-    height: 18px !important;
+    width: 18px;
+    height: 18px;
     color: var(--text-muted);
     transition: all 0.3s;
     flex-shrink: 0;
 }
 
-.dropzone:hover .upload-icon {
+.dropzone:hover .upload-icon,
+.csv-dropzone:hover .upload-icon {
     color: var(--neon-green);
     transform: translateY(-2px) scale(1.05);
     filter: drop-shadow(0 0 6px var(--neon-green));
@@ -311,12 +307,11 @@ svg[data-lucide] {
 }
 
 /* File loaded state */
-.dropzone-content.has-file {
+.dropzone.has-file {
     justify-content: flex-start;
-    gap: 10px;
 }
 
-.dropzone-content.has-file .dropzone-text {
+.dropzone.has-file .dropzone-text {
     background: rgba(57, 255, 20, 0.08);
     border: 1px solid rgba(57, 255, 20, 0.2);
     padding: 4px 10px;
@@ -324,6 +319,7 @@ svg[data-lucide] {
     font-family: var(--font-mono);
     font-size: 0.7rem;
     color: var(--neon-green);
+    max-width: calc(100% - 30px);
 }
 
 /* CSV Dropzone styling */
@@ -334,6 +330,10 @@ svg[data-lucide] {
     cursor: pointer;
     background: rgba(255, 255, 255, 0.01);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     overflow: hidden;
 }
 

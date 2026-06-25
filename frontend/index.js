@@ -151,8 +151,8 @@ function initDragAndDrop() {
 
 function handleFileSelect(file) {
     selectedFile = file;
-    const dropzoneContent = document.getElementById('dropzoneContent');
-    const dropzoneText = dropzoneContent.querySelector('.dropzone-text');
+    const dropzoneText = document.getElementById('dropzoneText');
+    const dropzone = document.getElementById('dropzone');
     const generateBtn = document.getElementById('generateBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const downloadBtnMain = document.getElementById('downloadBtnMain');
@@ -165,7 +165,7 @@ function handleFileSelect(file) {
     
     // Update the text to show filename
     dropzoneText.textContent = displayName;
-    dropzoneContent.classList.add('has-file');
+    dropzone.classList.add('has-file');
     
     generateBtn.disabled = false;
     downloadBtn.disabled = true;
