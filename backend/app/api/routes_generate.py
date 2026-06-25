@@ -87,6 +87,15 @@ async def generate_from_file(
         # 1. READ FILE CONTENT
         # =====================================
         raw_content = await file.read()
+        
+        # Validate file size (max 50MB for main file, 5MB for CSV files)
+        MAX_MAIN_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+        if len(raw_content) > MAX_MAIN_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Main file too large. Maximum size is {MAX_MAIN_FILE_SIZE // (1024*1024)}MB. Received: {len(raw_content) // (1024*1024)}MB"
+            )
+        
         raw_content = raw_content.decode("utf-8", errors="ignore")
         print(f"File received: {file.filename}")
 
@@ -95,9 +104,16 @@ async def generate_from_file(
         # =====================================
         csv_data_list = []
         if csv_files:
+            MAX_CSV_FILE_SIZE = 5 * 1024 * 1024  # 5MB
             for csv_file in csv_files:
                 if csv_file.filename:
                     csv_content = await csv_file.read()
+                    
+                    # Validate CSV file size
+                    if len(csv_content) > MAX_CSV_FILE_SIZE:
+                        print(f"CSV file {csv_file.filename} too large. Maximum size is {MAX_CSV_FILE_SIZE // (1024*1024)}MB. Skipping.")
+                        continue
+                    
                     csv_content = csv_content.decode("utf-8", errors="ignore")
                     
                     parsed_csv = parse_csv_file(csv_content, csv_file.filename)
@@ -250,10 +266,11 @@ async def generate_from_file(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Pipeline Generation Error: {str(e)}")
         import traceback
+        print(f"Pipeline Generation Error: {str(e)}")
         traceback.print_exc()
+        # Log the full traceback but don't expose it to the client
         return {
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": "An internal error occurred while processing the request. Please check the server logs for details.",
+            "error_type": type(e).__name__
         }
