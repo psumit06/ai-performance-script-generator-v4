@@ -2,9 +2,20 @@ import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from .api.routes_generate import router as generate_router
 
 app = FastAPI()
+
+# Configure CORS - allow all origins for development
+# In production, restrict to specific origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for dev; restrict in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Calculate absolute path to the frontend directory relative to this file
 # backend/app/main.py -> backend/app -> backend -> root workspace -> frontend
@@ -28,9 +39,9 @@ def root():
     except Exception as e:
         return f"""
         <html>
-            <head><title>Antigravity Startup Error</title></head>
+            <head><title>Startup Error</title></head>
             <body style="background:#0a0813; color:#ff3366; font-family:sans-serif; padding:50px; text-align:center;">
-                <h2>Antigravity Generator Initialization Error</h2>
+                <h2>Generator Initialization Error</h2>
                 <p>Could not locate index.html in frontend folder at absolute path:</p>
                 <code style="background:#1c172d; padding:10px 20px; border-radius:6px; color:#f3f1f9;">{index_path}</code>
                 <p>Details: {str(e)}</p>
