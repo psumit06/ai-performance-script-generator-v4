@@ -115,6 +115,22 @@ enabled="true">
 """
     return ""
 
+def build_http_file_arg(field_name, file_path, mime_type="application/octet-stream"):
+    """
+    Renders an HTTPFileArg element for multipart file uploads in JMeter.
+    """
+    return f"""
+<elementProp name="" elementType="HTTPFileArg">
+
+{string_prop("HTTPSampler.fileName", file_path)}
+
+{string_prop("HTTPSampler.paramName", field_name)}
+
+{string_prop("HTTPSampler.mimeType", mime_type)}
+
+</elementProp>
+"""
+
 def render_sampler(request):
     """
     Renders a single HTTPSamplerProxy element and its headers/extractors/timers.
@@ -131,6 +147,7 @@ def render_sampler(request):
     form_data = request.get("form_data", [])
     urlencoded = request.get("urlencoded", [])
     content_type = request.get("content_type", "")
+    multipart_files = request.get("multipart_files", [])
 
     if not host and request.get("full_url"):
         path = request.get("full_url")
@@ -153,10 +170,15 @@ elementType="Arguments">
     for param in query_params:
         xml += build_http_argument(param.get("key", ""), param.get("value", ""))
 
-    # Form Data body
+    # Form Data body (text fields + file uploads)
     if body_mode == "formdata":
         for item in form_data:
             xml += build_http_argument(item.get("key", ""), item.get("value", ""))
+        for file_item in multipart_files:
+            xml += build_http_file_arg(
+                file_item.get("key", ""),
+                file_item.get("src", "")
+            )
             
     # Raw JSON/XML body
     elif body_mode == "raw" or "json" in content_type.lower():

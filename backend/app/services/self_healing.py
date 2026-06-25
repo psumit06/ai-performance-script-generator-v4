@@ -90,7 +90,7 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
             llm_model=llm_model
         )
         
-        if not healing_action or not healing_action.get("new_extractor") and not healing_action.get("replacements"):
+        if not healing_action or not isinstance(healing_action, dict) or (not healing_action.get("new_extractor") and not healing_action.get("replacements")):
             print("AI could not formulate a repair action. Aborting self-healing to prevent infinite loops.")
             healing_history.append({
                 "iteration": iteration,
@@ -346,6 +346,8 @@ def heal_failures_with_ai(failures, original_endpoints, test_plan, iteration, ll
     • You can use MULTIPLE fix types if needed (e.g., csrf_fix + content_type_fix)
     • For CSRF tokens, ALWAYS extract from upstream first, then add to downstream headers
     • Return ONLY the raw JSON object, no markdown or explanations
+    • Return a SINGLE JSON object, NOT a JSON array like [{{...}}]
+    • The response must start with {{ and end with }} directly
     """
 
     try:
@@ -354,6 +356,11 @@ def heal_failures_with_ai(failures, original_endpoints, test_plan, iteration, ll
             raise RuntimeError(f"AI self-healing skipped because provider '{config['provider']}' is not configured.")
         text = generate_text(prompt, provider=llm_provider, model=llm_model)
         action = extract_json_object(text)
+        # Normalize: if LLM returned a list, unwrap to first element
+        if isinstance(action, list):
+            action = action[0] if action else None
+        if action and not isinstance(action, dict):
+            action = None
         return action
     except Exception as e:
         print(f"AI Self-Healing formulation failed: {e}")
