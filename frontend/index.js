@@ -121,8 +121,6 @@ function validateSelectedProvider() {
 function initDragAndDrop() {
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
-    const fileName = document.getElementById('fileName');
-    const fileBadge = document.getElementById('fileBadge');
     const generateBtn = document.getElementById('generateBtn');
 
     dropzone.addEventListener('click', () => fileInput.click());
@@ -153,22 +151,22 @@ function initDragAndDrop() {
 
 function handleFileSelect(file) {
     selectedFile = file;
-    const fileNameDisp = document.getElementById('fileName');
-    const fileBadge = document.getElementById('fileBadge');
-    const dropzone = document.getElementById('dropzone');
+    const dropzoneContent = document.getElementById('dropzoneContent');
+    const dropzoneText = dropzoneContent.querySelector('.dropzone-text');
     const generateBtn = document.getElementById('generateBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const downloadBtnMain = document.getElementById('downloadBtnMain');
 
-    // Truncate filename aggressively to prevent overflow
-    const maxLen = 20;
+    // Truncate filename to prevent overflow
+    const maxLen = 22;
     const displayName = file.name.length > maxLen 
         ? file.name.substring(0, maxLen) + '...' 
         : file.name;
     
-    fileNameDisp.textContent = displayName;
-    fileBadge.classList.remove('hidden');
-    dropzone.classList.add('has-file');
+    // Update the text to show filename
+    dropzoneText.textContent = displayName;
+    dropzoneContent.classList.add('has-file');
+    
     generateBtn.disabled = false;
     downloadBtn.disabled = true;
     downloadBtnMain.disabled = true;
