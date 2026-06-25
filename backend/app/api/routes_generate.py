@@ -88,8 +88,8 @@ async def generate_from_file(
         # =====================================
         raw_content = await file.read()
         
-        # Validate file size (max 50MB for main file, 5MB for CSV files)
-        MAX_MAIN_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+        # Validate file size (max 100MB for main file, 15MB for CSV files)
+        MAX_MAIN_FILE_SIZE = 100 * 1024 * 1024  # 100MB
         if len(raw_content) > MAX_MAIN_FILE_SIZE:
             raise HTTPException(
                 status_code=413,
@@ -104,7 +104,7 @@ async def generate_from_file(
         # =====================================
         csv_data_list = []
         if csv_files:
-            MAX_CSV_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+            MAX_CSV_FILE_SIZE = 15 * 1024 * 1024  # 15MB
             for csv_file in csv_files:
                 if csv_file.filename:
                     csv_content = await csv_file.read()
