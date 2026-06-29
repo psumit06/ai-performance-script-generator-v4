@@ -196,11 +196,9 @@ elementType="HTTPArgument">
 
     xml += """
 </collectionProp>
-
-</elementProp>
 """
 
-    # File uploads go in a SEPARATE collection (JMeter requires this)
+    # File uploads go INSIDE the Arguments elementProp (shows in Parameters tab)
     if multipart_files:
         xml += """
 <collectionProp name="HTTPSampler.files">
@@ -212,6 +210,10 @@ elementType="HTTPArgument">
             )
         xml += """
 </collectionProp>
+"""
+
+    xml += """
+</elementProp>
 """
 
     # Sampler host/port settings
