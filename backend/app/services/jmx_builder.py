@@ -241,8 +241,10 @@ elementType="HTTPArgument">
 {string_prop("HTTPSampler.embedded_url_re", "")}
 """
 
-    # Body raw flag
-    if body_mode == "raw" or "json" in content_type.lower():
+    # Body raw flag - formdata/urlencoded ALWAYS use Parameters tab
+    if body_mode == "formdata" or body_mode == "urlencoded":
+        xml += f"{bool_prop('HTTPSampler.postBodyRaw', False)}\n"
+    elif body_mode == "raw" or "json" in content_type.lower():
         xml += f"{bool_prop('HTTPSampler.postBodyRaw', True)}\n"
     else:
         xml += f"{bool_prop('HTTPSampler.postBodyRaw', False)}\n"
