@@ -24,6 +24,29 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
     token_pattern = re.compile(r"^[a-zA-Z0-9_\-\.\=\+]{10,2048}$")
     # Matches JMeter/Postman variable expressions like ${host} or ${c_token}
     jmeter_var_pattern = re.compile(r"\$\{[^}]+\}")
+    
+    # Helper: check if a value looks like a real token (high entropy, mixed case)
+    def looks_like_token(val):
+        """Returns True only if value has characteristics of a real token."""
+        if not val or len(val) < 10:
+            return False
+        # Must have mixed case OR numbers to be a token (not just lowercase words)
+        has_upper = any(c.isupper() for c in val)
+        has_lower = any(c.islower() for c in val)
+        has_digit = any(c.isdigit() for c in val)
+        # Simple lowercase words with hyphens are NOT tokens
+        if not has_upper and not has_digit:
+            return False
+        # Very long values are likely tokens
+        if len(val) > 50:
+            return True
+        # Must have some complexity (not just "abc123456")
+        if has_upper and has_lower and has_digit:
+            return True
+        # JWT-like tokens (base64 with dots)
+        if "." in val and has_upper:
+            return True
+        return False
 
     # 1. Deterministic Scan & Trace
     for i in range(len(endpoints)):
@@ -58,7 +81,7 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
         # B. Query params
         for q in downstream_ep.get("query_params", []):
             val = q.get("value", "")
-            if len(val) > 8 and token_pattern.match(val) and not jmeter_var_pattern.search(val):
+            if looks_like_token(val) and not jmeter_var_pattern.search(val):
                 candidates.append(("query", q.get("key"), val))
 
         # C. Body params - only scan urlencoded/formdata (not raw JSON body
@@ -67,12 +90,12 @@ def analyze_correlations(endpoints, llm_provider=None, llm_model=None):
         if body_mode == "urlencoded":
             for param in downstream_ep.get("urlencoded", []):
                 val = param.get("value", "")
-                if len(val) > 8 and token_pattern.match(val) and not jmeter_var_pattern.search(val):
+                if looks_like_token(val) and not jmeter_var_pattern.search(val):
                     candidates.append(("urlencoded", param.get("key"), val))
         elif body_mode == "formdata":
             for param in downstream_ep.get("form_data", []):
                 val = param.get("value", "")
-                if len(val) > 8 and token_pattern.match(val) and not jmeter_var_pattern.search(val):
+                if looks_like_token(val) and not jmeter_var_pattern.search(val):
                     candidates.append(("formdata", param.get("key"), val))
 
         # Trace candidates upstream (preceding requests 0 to i-1)

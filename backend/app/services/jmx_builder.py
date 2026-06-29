@@ -175,8 +175,8 @@ elementType="Arguments">
         for item in form_data:
             xml += build_http_argument(item.get("key", ""), item.get("value", ""))
             
-    # Raw JSON/XML body
-    elif body_mode == "raw" or "json" in content_type.lower():
+    # Raw JSON/XML body (only when body_mode is explicitly "raw", NOT when content-type says json)
+    elif body_mode == "raw":
         xml += f"""
 <elementProp name=""
 elementType="HTTPArgument">
@@ -244,7 +244,7 @@ elementType="HTTPArgument">
     # Body raw flag - formdata/urlencoded ALWAYS use Parameters tab
     if body_mode == "formdata" or body_mode == "urlencoded":
         xml += f"{bool_prop('HTTPSampler.postBodyRaw', False)}\n"
-    elif body_mode == "raw" or "json" in content_type.lower():
+    elif body_mode == "raw":
         xml += f"{bool_prop('HTTPSampler.postBodyRaw', True)}\n"
     else:
         xml += f"{bool_prop('HTTPSampler.postBodyRaw', False)}\n"
@@ -273,6 +273,12 @@ enabled="true">
             key = header.get("key", "")
             value = header.get("value", "")
             if key.lower() in ignored_headers:
+                continue
+            # For formdata, skip incorrect Content-Type headers (JMeter auto-sets multipart/form-data)
+            if body_mode == "formdata" and key.lower() == "content-type":
+                continue
+            # For urlencoded, skip incorrect Content-Type headers
+            if body_mode == "urlencoded" and key.lower() == "content-type":
                 continue
                 
             xml += f"""
