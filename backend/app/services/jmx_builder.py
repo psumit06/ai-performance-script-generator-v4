@@ -170,15 +170,10 @@ elementType="Arguments">
     for param in query_params:
         xml += build_http_argument(param.get("key", ""), param.get("value", ""))
 
-    # Form Data body (text fields + file uploads)
+    # Form Data body (text fields only - files go in separate collection)
     if body_mode == "formdata":
         for item in form_data:
             xml += build_http_argument(item.get("key", ""), item.get("value", ""))
-        for file_item in multipart_files:
-            xml += build_http_file_arg(
-                file_item.get("key", ""),
-                file_item.get("src", "")
-            )
             
     # Raw JSON/XML body
     elif body_mode == "raw" or "json" in content_type.lower():
@@ -203,6 +198,20 @@ elementType="HTTPArgument">
 </collectionProp>
 
 </elementProp>
+"""
+
+    # File uploads go in a SEPARATE collection (JMeter requires this)
+    if multipart_files:
+        xml += """
+<collectionProp name="HTTPSampler.files">
+"""
+        for file_item in multipart_files:
+            xml += build_http_file_arg(
+                file_item.get("key", ""),
+                file_item.get("src", "")
+            )
+        xml += """
+</collectionProp>
 """
 
     # Sampler host/port settings
