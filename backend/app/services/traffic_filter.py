@@ -21,14 +21,42 @@ def filter_traffic_with_ai(endpoints, llm_provider=None, llm_model=None):
         "browser-update.org", "optimizely.com", "clarity.ms"
     ]
     
+    # Always keep these URL patterns (auth, token, OAuth endpoints)
+    always_keep_patterns = [
+        "token", "oauth", "auth", "login", "signin", "session",
+        "jwt", "bearer", "api-key", "apikey", "saml", "sso"
+    ]
+    
     pre_filtered_list = []
     noise_count = 0
     
     for idx, ep in enumerate(endpoints):
         url = ep.get("full_url", "")
+        url_lower = url.lower()
+        
+        # Check if this is an auth/token endpoint - ALWAYS keep
+        is_auth_endpoint = False
+        for pattern in always_keep_patterns:
+            if pattern in url_lower:
+                is_auth_endpoint = True
+                break
+        
+        # Also keep if endpoint has test_script_info (sets environment variables)
+        has_test_script = bool(ep.get("test_script_info", {}).get("variable_name"))
+        
+        if is_auth_endpoint or has_test_script:
+            # Force keep - never filter auth endpoints or variable-setting endpoints
+            ep["ai_decision"] = {
+                "keep": True,
+                "reason": "Auth/token/variable endpoint - always preserved"
+            }
+            pre_filtered_list.append((idx, ep))
+            continue
+        
+        # Check for obvious noise domains
         is_noise = False
         for domain in obvious_noise_domains:
-            if domain in url.lower():
+            if domain in url_lower:
                 is_noise = True
                 break
         
@@ -51,7 +79,8 @@ def filter_traffic_with_ai(endpoints, llm_provider=None, llm_model=None):
             "index": idx,
             "method": ep.get("method", ""),
             "url": ep.get("full_url", ""),
-            "content_type": ep.get("content_type", "")
+            "content_type": ep.get("content_type", ""),
+            "has_test_script": bool(ep.get("test_script_info", {}).get("variable_name"))
         })
 
     prompt = f"""
@@ -63,10 +92,17 @@ def filter_traffic_with_ai(endpoints, llm_provider=None, llm_model=None):
     1. Static assets (images, web fonts, CSS files, plain JS files, browser icons) UNLESS they are critical API endpoints.
     2. Third-party integrations that distort performance benchmarks (e.g. CDNs, tracking pixels, ads, maps, fonts, static content hosts).
     
-    We want to KEEP:
-    1. Core application APIs (JSON/XML/GraphQL payloads).
-    2. Document loads (HTML pages representing base entry points).
-    3. Custom backend webhooks or server-to-server APIs.
+    We want to KEEP (CRITICAL - NEVER FILTER THESE):
+    1. Authentication/Token endpoints (OAuth, JWT, login, SSO, API keys) - even if they look like static endpoints
+    2. Endpoints that set environment variables (has_test_script=true) - these are critical for token correlation
+    3. Core application APIs (JSON/XML/GraphQL payloads).
+    4. Document loads (HTML pages representing base entry points).
+    5. Custom backend webhooks or server-to-server APIs.
+
+    IMPORTANT RULES:
+    - If has_test_script=true, ALWAYS set keep=true (these endpoints set tokens needed by downstream requests)
+    - If URL contains "token", "oauth", "auth", "login", "signin", "session", "jwt", "bearer", "sso" - ALWAYS set keep=true
+    - When in doubt, KEEP the endpoint (false positives are better than losing critical auth flows)
 
     Analyze these requests:
     {json.dumps(prompt_payload, indent=2)}
@@ -90,15 +126,24 @@ def filter_traffic_with_ai(endpoints, llm_provider=None, llm_model=None):
         results = ai_data.get("results", [])
         exclusion_regex = ai_data.get("exclusion_regex", "(?i).*\\.(bmp|css|js|gif|ico|png|woff2)")
         
-        # Apply decisions
+        # Apply decisions - but ALWAYS override to keep auth endpoints
         ai_decision_map = {res["index"]: res for res in results}
         
         filtered_endpoints = []
         for idx, ep in enumerate(endpoints):
+            # Check if this is an auth endpoint that must be kept
+            url_lower = ep.get("full_url", "").lower()
+            is_auth_endpoint = any(p in url_lower for p in always_keep_patterns)
+            has_test_script = bool(ep.get("test_script_info", {}).get("variable_name"))
+            
             if idx in ai_decision_map:
                 decision = ai_decision_map[idx]
+                # Force keep if auth endpoint or has test script
+                keep = decision.get("keep", True)
+                if is_auth_endpoint or has_test_script:
+                    keep = True
                 ep["ai_decision"] = {
-                    "keep": decision.get("keep", True),
+                    "keep": keep,
                     "reason": decision.get("reason", "AI Classification")
                 }
             elif "ai_decision" not in ep:
@@ -106,6 +151,11 @@ def filter_traffic_with_ai(endpoints, llm_provider=None, llm_model=None):
                     "keep": True,
                     "reason": "Default Keep (No AI Classification result)"
                 }
+            
+            # Final override: always keep auth endpoints
+            if is_auth_endpoint or has_test_script:
+                ep["ai_decision"]["keep"] = True
+                ep["ai_decision"]["reason"] = "Auth/token/variable endpoint - always preserved"
             
             if ep["ai_decision"]["keep"]:
                 filtered_endpoints.append(ep)
@@ -123,13 +173,24 @@ def filter_traffic_with_ai(endpoints, llm_provider=None, llm_model=None):
         
         for ep in endpoints:
             url = ep.get("full_url", "")
+            url_lower = url.lower()
+            
+            # Always keep auth endpoints
+            is_auth_endpoint = any(p in url_lower for p in always_keep_patterns)
+            has_test_script = bool(ep.get("test_script_info", {}).get("variable_name"))
+            
+            if is_auth_endpoint or has_test_script:
+                ep["ai_decision"] = {"keep": True, "reason": "Auth/token/variable endpoint - always preserved"}
+                filtered_endpoints.append(ep)
+                continue
+            
             # Check static extension
             is_static = bool(static_ext_pattern.search(url))
             
             # Check deterministic domain exclusions
             is_noise = False
             for domain in obvious_noise_domains:
-                if domain in url.lower():
+                if domain in url_lower:
                     is_noise = True
                     break
                     
