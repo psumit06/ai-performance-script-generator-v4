@@ -431,8 +431,24 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
                         const parsed = JSON.parse(eventData);
                         if (eventType === 'log') {
                             // Real-time log from self-healing loop
-                            const logType = parsed.log_type || 'info';
-                            logTerminal(parsed.message, logType);
+                            const logType = parsed.log_type || 'system';
+                            if (logType === 'healing') {
+                                // Parse healing entry JSON and display with color
+                                try {
+                                    const entry = JSON.parse(parsed.message);
+                                    if (entry.failures && Array.isArray(entry.failures)) {
+                                        entry.failures.forEach(f => {
+                                            logTerminal(`   -> Fail: ${f.sampler_label} returned [${f.response_code} ${f.response_message}]`, 'error');
+                                        });
+                                    }
+                                    logTerminal(`[AI Self-Healing Agent] Diagnosis: ${entry.diagnosis}`, 'thought');
+                                    logTerminal(`[AI Self-Healing Agent] Action Taken: ${entry.action_taken}`, 'highlight');
+                                } catch (e) {
+                                    logTerminal(parsed.message, 'thought');
+                                }
+                            } else {
+                                logTerminal(parsed.message, logType);
+                            }
                         } else if (eventType === 'result') {
                             data = parsed;
                         } else if (eventType === 'error') {
