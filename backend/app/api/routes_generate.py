@@ -1,5 +1,7 @@
 import json
 import os
+import queue
+import threading
 from typing import List, Optional
 from fastapi import (
     APIRouter,
@@ -8,6 +10,7 @@ from fastapi import (
     Query,
     HTTPException
 )
+from fastapi.responses import StreamingResponse
 from app.services.parser_router import (
     parse_api_spec
 )
@@ -187,81 +190,120 @@ async def generate_from_file(
         }
 
         # =====================================
-        # 7. SELF-HEALING VALIDATION LOOP
+        # 7. SELF-HEALING VALIDATION LOOP (SSE Streaming)
         # =====================================
         backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         output_dir = os.path.join(backend_dir, "output")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, "generated_test_plan.jmx")
-        healing_result = run_self_healing_loop(
-            test_plan=test_plan,
-            original_endpoints=correlated_endpoints,
-            output_path=output_path,
-            max_retries=3,
-            llm_provider=effective_provider,
-            llm_model=effective_model
-        )
 
-        # =====================================
-        # 8. PREPARE RESPONSE DATA
-        # =====================================
-        # We return a comprehensive JSON dataset so that the premium glassmorphic
-        # dashboard can display visual DAG diagrams, self-healing thought logs, JMX preview, etc.
-        return {
-            "success": healing_result["success"],
-            "filename": file.filename,
-            "success_rate": healing_result["report"]["success_rate"],
-            "total_requests": healing_result["report"]["total_requests"],
-            "failed_requests": healing_result["report"]["failed_requests"],
-            "failures": healing_result["report"]["failures"],
-            "validation": {
-                "valid": healing_result["report"].get("valid", False),
-                "xml_validation_passed": healing_result["report"].get("xml_validation_passed", False),
-                "xml_success_rate": healing_result["report"].get("xml_success_rate", 0.0),
-                "jmeter_executed": healing_result["report"].get("jmeter_executed", False),
-                "dry_run_skipped": healing_result["report"].get("dry_run_skipped", False),
-                "skip_reason": healing_result["report"].get("skip_reason", ""),
-                "jmeter_command": healing_result["report"].get("jmeter_command", ""),
-                "jtl_path": healing_result["report"].get("jtl_path", ""),
-                "log_path": healing_result["report"].get("log_path", ""),
-                "log_errors": healing_result["report"].get("log_errors", [])
-            },
-            "jmx_content": healing_result["jmx_content"],
-            "correlations": detected_correlations,
-            "healing_history": healing_result["healing_history"],
-            "exclusion_regex": exclusion_regex,
-            "ai_enabled": ai_enabled,
-            "llm_provider": effective_provider,
-            "llm_model": effective_model,
-            "execution_profile": {
-                "users": users,
-                "ramp_up": ramp_up,
-                "duration": duration,
-                "think_time": think_time,
-                "pacing": pacing
-            },
-            "csv_files": [
-                {
-                    "filename": csv["filename"],
-                    "variables": csv["variables"],
-                    "row_count": csv["row_count"]
-                }
-                for csv in csv_data_list
-            ],
-            "flow": logical_flow,
-            "endpoints": [
-                {
-                    "name": ep.get("name"),
-                    "method": ep.get("method"),
-                    "url": ep.get("full_url"),
-                    "kept": ep.get("ai_decision", {}).get("keep", True),
-                    "reason": ep.get("ai_decision", {}).get("reason", "")
-                    ,
-                    "extractors": ep.get("extractors", [])
-                }
-                for ep in all_endpoints
-            ]
-        }
+        # Use a queue to stream logs from the blocking self-healing loop to SSE
+        log_queue = queue.Queue()
+
+        def on_log(log_type, message):
+            log_queue.put({"type": "log", "log_type": log_type, "message": message})
+
+        def run_healing():
+            try:
+                result = run_self_healing_loop(
+                    test_plan=test_plan,
+                    original_endpoints=correlated_endpoints,
+                    output_path=output_path,
+                    max_retries=7,
+                    llm_provider=effective_provider,
+                    llm_model=effective_model,
+                    on_log=on_log
+                )
+                log_queue.put({"type": "result", "data": result})
+            except Exception as e:
+                log_queue.put({"type": "error", "message": str(e)})
+            finally:
+                log_queue.put(None)  # Sentinel to signal completion
+
+        # Run self-healing in a background thread
+        healing_thread = threading.Thread(target=run_healing, daemon=True)
+        healing_thread.start()
+
+        def event_stream():
+            try:
+                while True:
+                    item = log_queue.get()
+                    if item is None:
+                        break
+                    if item["type"] == "log":
+                        yield f"event: log\ndata: {json.dumps({'log_type': item['log_type'], 'message': item['message']})}\n\n"
+                    elif item["type"] == "result":
+                        healing_result = item["data"]
+                        # Build the final response payload
+                        response_data = {
+                            "success": healing_result["success"],
+                            "filename": file.filename,
+                            "success_rate": healing_result["report"]["success_rate"],
+                            "total_requests": healing_result["report"]["total_requests"],
+                            "failed_requests": healing_result["report"]["failed_requests"],
+                            "failures": healing_result["report"]["failures"],
+                            "validation": {
+                                "valid": healing_result["report"].get("valid", False),
+                                "xml_validation_passed": healing_result["report"].get("xml_validation_passed", False),
+                                "xml_success_rate": healing_result["report"].get("xml_success_rate", 0.0),
+                                "jmeter_executed": healing_result["report"].get("jmeter_executed", False),
+                                "dry_run_skipped": healing_result["report"].get("dry_run_skipped", False),
+                                "skip_reason": healing_result["report"].get("skip_reason", ""),
+                                "jmeter_command": healing_result["report"].get("jmeter_command", ""),
+                                "jtl_path": healing_result["report"].get("jtl_path", ""),
+                                "log_path": healing_result["report"].get("log_path", ""),
+                                "log_errors": healing_result["report"].get("log_errors", [])
+                            },
+                            "jmx_content": healing_result["jmx_content"],
+                            "correlations": detected_correlations,
+                            "healing_history": healing_result["healing_history"],
+                            "exclusion_regex": exclusion_regex,
+                            "ai_enabled": ai_enabled,
+                            "llm_provider": effective_provider,
+                            "llm_model": effective_model,
+                            "execution_profile": {
+                                "users": users,
+                                "ramp_up": ramp_up,
+                                "duration": duration,
+                                "think_time": think_time,
+                                "pacing": pacing
+                            },
+                            "csv_files": [
+                                {
+                                    "filename": csv["filename"],
+                                    "variables": csv["variables"],
+                                    "row_count": csv["row_count"]
+                                }
+                                for csv in csv_data_list
+                            ],
+                            "flow": logical_flow,
+                            "endpoints": [
+                                {
+                                    "name": ep.get("name"),
+                                    "method": ep.get("method"),
+                                    "url": ep.get("full_url"),
+                                    "kept": ep.get("ai_decision", {}).get("keep", True),
+                                    "reason": ep.get("ai_decision", {}).get("reason", ""),
+                                    "extractors": ep.get("extractors", [])
+                                }
+                                for ep in all_endpoints
+                            ]
+                        }
+                        yield f"event: result\ndata: {json.dumps(response_data)}\n\n"
+                    elif item["type"] == "error":
+                        yield f"event: error\ndata: {json.dumps({'error': item['message']})}\n\n"
+            except Exception as e:
+                yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
 
     except HTTPException:
         raise
@@ -269,7 +311,6 @@ async def generate_from_file(
         import traceback
         print(f"Pipeline Generation Error: {str(e)}")
         traceback.print_exc()
-        # Log the full traceback but don't expose it to the client
         return {
             "error": "An internal error occurred while processing the request. Please check the server logs for details.",
             "error_type": type(e).__name__
