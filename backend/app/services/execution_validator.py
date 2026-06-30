@@ -3,6 +3,7 @@ import subprocess
 import csv
 import shutil
 import xml.etree.ElementTree as ET
+from app.services.xml_validator import validate_jmx_xsd_file
 
 def get_jmeter_path():
     """
@@ -257,26 +258,9 @@ def run_jmeter(jmx_path):
     }
 
 def validate_jmx_xml(jmx_path):
+    # Step 1: Basic well-formedness check (fast)
     try:
         ET.parse(jmx_path)
-        return {
-            "valid": True,
-            "success_rate": 100.0,
-            "xml_success_rate": 100.0,
-            "total_requests": 0,
-            "failed_requests": 0,
-            "failures": [],
-            "log_errors": [],
-            "stdout": "",
-            "stderr": "",
-            "dry_run_skipped": False,
-            "jmeter_executed": False,
-            "xml_validation_passed": True,
-            "jmeter_command": "",
-            "jtl_path": "",
-            "log_path": "",
-            "skip_reason": ""
-        }
     except Exception as exc:
         return {
             "valid": False,
@@ -303,3 +287,55 @@ def validate_jmx_xml(jmx_path):
             "log_path": "",
             "skip_reason": "JMX XML validation failed before JMeter execution."
         }
+
+    # Step 2: XSD schema validation (thorough)
+    xsd_result = validate_jmx_xsd_file(jmx_path)
+    if not xsd_result["valid"]:
+        error_messages = [f"L{e['line']}: {e['message']}" for e in xsd_result["errors"]]
+        error_summary = "; ".join(error_messages[:5])
+        print(f"[XSD Validation] Failed with {len(xsd_result['errors'])} error(s): {error_summary}")
+        return {
+            "valid": False,
+            "success_rate": 0.0,
+            "xml_success_rate": 0.0,
+            "total_requests": 0,
+            "failed_requests": 1,
+            "failures": [{
+                "sampler_label": "JMX XSD schema validation",
+                "url": "",
+                "response_code": "XSD",
+                "response_message": f"XSD validation failed: {len(xsd_result['errors'])} error(s)",
+                "failure_message": error_summary,
+                "elapsed": "0"
+            }],
+            "log_errors": error_messages,
+            "stdout": "",
+            "stderr": error_summary,
+            "dry_run_skipped": True,
+            "jmeter_executed": False,
+            "xml_validation_passed": False,
+            "jmeter_command": "",
+            "jtl_path": "",
+            "log_path": "",
+            "skip_reason": f"XSD schema validation failed: {error_summary}"
+        }
+
+    print("[XSD Validation] JMX passed XSD schema validation.")
+    return {
+        "valid": True,
+        "success_rate": 100.0,
+        "xml_success_rate": 100.0,
+        "total_requests": 0,
+        "failed_requests": 0,
+        "failures": [],
+        "log_errors": [],
+        "stdout": "",
+        "stderr": "",
+        "dry_run_skipped": False,
+        "jmeter_executed": False,
+        "xml_validation_passed": True,
+        "jmeter_command": "",
+        "jtl_path": "",
+        "log_path": "",
+        "skip_reason": ""
+    }
