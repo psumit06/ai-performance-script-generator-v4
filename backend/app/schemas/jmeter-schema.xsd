@@ -1,0 +1,365 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!-- Root element: jmeterTestPlan -->
+  <xs:element name="jmeterTestPlan">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="hashTree" minOccurs="1" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="version" type="xs:string" use="required"/>
+      <xs:attribute name="properties" type="xs:string" use="required"/>
+      <xs:attribute name="jmeter" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- hashTree: recursive container for test elements -->
+  <xs:element name="hashTree">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- stringProp -->
+  <xs:element name="stringProp">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:string">
+          <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- intProp -->
+  <xs:element name="intProp">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:int">
+          <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- longProp -->
+  <xs:element name="longProp">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:long">
+          <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- boolProp -->
+  <xs:element name="boolProp">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="xs:boolean">
+          <xs:attribute name="name" type="xs:string" use="required"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- doubleProp -->
+  <xs:element name="doubleProp">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="value" type="xs:double"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- collectionProp -->
+  <xs:element name="collectionProp">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- elementProp -->
+  <xs:element name="elementProp">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
+      </xs:sequence>
+      <xs:attribute name="name" type="xs:string" use="required"/>
+      <xs:attribute name="elementType" type="xs:string" use="required"/>
+      <xs:attribute name="guiclass" type="xs:string" use="optional"/>
+      <xs:attribute name="testclass" type="xs:string" use="optional"/>
+      <xs:attribute name="testname" type="xs:string" use="optional"/>
+      <xs:attribute name="enabled" type="xs:string" use="optional"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- objProp -->
+  <xs:element name="objProp">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="name" type="xs:string"/>
+        <xs:any minOccurs="0" maxOccurs="unbounded" processContents="skip"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ===== TEST ELEMENTS ===== -->
+
+  <!-- ThreadGroup -->
+  <xs:element name="ThreadGroup">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="intProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="collectionProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- HTTPSamplerProxy -->
+  <xs:element name="HTTPSamplerProxy">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="elementProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="collectionProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- HeaderManager -->
+  <xs:element name="HeaderManager">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="collectionProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ResultCollector -->
+  <xs:element name="ResultCollector">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="objProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- TestAction (Flow Control) -->
+  <xs:element name="TestAction">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="intProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ConfigTestElement (HTTP Request Defaults) -->
+  <xs:element name="ConfigTestElement">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="elementProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- CSVDataSet -->
+  <xs:element name="CSVDataSet">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="elementProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- TransactionController -->
+  <xs:element name="TransactionController">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- JSR223Sampler -->
+  <xs:element name="JSR223Sampler">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="collectionProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- RegexExtractor -->
+  <xs:element name="RegexExtractor">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="intProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- BoundaryExtractor -->
+  <xs:element name="BoundaryExtractor">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="intProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- JSONPostProcessor -->
+  <xs:element name="JSONPostProcessor">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="collectionProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- UniformRandomTimer -->
+  <xs:element name="UniformRandomTimer">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="intProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="longProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ConstantTimer -->
+  <xs:element name="ConstantTimer">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ConstantThroughputTimer -->
+  <xs:element name="ConstantThroughputTimer">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="intProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="doubleProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- GenericController (SimpleController) -->
+  <xs:element name="GenericController">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="stringProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="collectionProp" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ProxyControl (BlazeMeter Parallel Controller) -->
+  <xs:element name="com.blazemeter.jmeter.controller.ParallelSampler">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="boolProp" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="guiclass" type="xs:string" use="required"/>
+      <xs:attribute name="testclass" type="xs:string" use="required"/>
+      <xs:attribute name="testname" type="xs:string" use="required"/>
+      <xs:attribute name="enabled" type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
