@@ -389,9 +389,8 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
             body: formData
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
+            const data = await response.json();
             const detail = data.detail || {};
             const message = detail.message || data.error || `Generation failed with HTTP ${response.status}.`;
             showUserAlert(message);
@@ -402,7 +401,62 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
             generateBtn.querySelector('span').textContent = 'Analyze & Generate Script';
             return;
         }
-        
+
+        // Consume SSE stream for real-time logs
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let data = null;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            // Parse SSE events from buffer
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line in buffer
+
+            let eventType = '';
+            let eventData = '';
+
+            for (const line of lines) {
+                if (line.startsWith('event: ')) {
+                    eventType = line.slice(7).trim();
+                } else if (line.startsWith('data: ')) {
+                    eventData = line.slice(6);
+                } else if (line === '' && eventType && eventData) {
+                    // Empty line = end of SSE event
+                    try {
+                        const parsed = JSON.parse(eventData);
+                        if (eventType === 'log') {
+                            // Real-time log from self-healing loop
+                            const logType = parsed.log_type || 'info';
+                            logTerminal(parsed.message, logType);
+                        } else if (eventType === 'result') {
+                            data = parsed;
+                        } else if (eventType === 'error') {
+                            showUserAlert(parsed.error || 'An error occurred during generation.');
+                            generateBtn.disabled = false;
+                            generateBtn.querySelector('span').textContent = 'Analyze & Generate Script';
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('SSE parse error:', e);
+                    }
+                    eventType = '';
+                    eventData = '';
+                }
+            }
+        }
+
+        if (!data) {
+            showUserAlert('No result received from server.');
+            generateBtn.disabled = false;
+            generateBtn.querySelector('span').textContent = 'Analyze & Generate Script';
+            return;
+        }
+
         if (data.error) {
             showUserAlert(data.error);
             if (data.traceback) {
@@ -429,15 +483,8 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
             logTerminal(`   -> Birth index [${corr.source_index}] (${corr.extractor_type}) -> downstream index [${corr.target_index}] replaced with \${${corr.var_name}}`, 'success');
         });
 
-        // 3. Log Self-Healing Logs
-        logTerminal(`[Dry Run Validation] Launching headless JMeter dry run iteration...`, 'run');
+        // 3. Log Self-Healing summary
         const validation = data.validation || {};
-
-        if (validation.xml_validation_passed) {
-            logTerminal(`[XML Validation] JMX XML structure validation passed.`, 'success');
-        } else {
-            logTerminal(`[XML Validation] JMX XML structure validation failed.`, 'error');
-        }
 
         if (validation.dry_run_skipped) {
             logTerminal(`[Dry Run Validation] JMeter execution was skipped: ${validation.skip_reason || 'No skip reason provided.'}`, 'error');
@@ -455,18 +502,6 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         if (data.healing_history.length === 0 && validation.jmeter_executed) {
             logTerminal(`[Dry Run Validation] Iteration 1: XML Passed. Execution ${data.success_rate}% success rate. Script clean.`, 'success');
         } else {
-            data.healing_history.forEach(entry => {
-                const rateText = data.success_rate === null || data.success_rate === undefined ? 'not available' : `${data.success_rate}%`;
-                logTerminal(`[Dry Run Validation] Iteration ${entry.iteration}: XML Passed. Execution rate=${rateText}. Errors detected!`, 'error');
-                if (entry.failures && Array.isArray(entry.failures)) {
-                    entry.failures.forEach(f => {
-                        logTerminal(`   -> Fail: ${f.sampler_label} returned [${f.response_code} ${f.response_message}]`, 'error');
-                    });
-                }
-                logTerminal(`[AI Self-Healing Agent] Diagnosis: ${entry.diagnosis}`, 'thought');
-                logTerminal(`[AI Self-Healing Agent] Action Taken: ${entry.action_taken}`, 'highlight');
-            });
-            
             if (data.success) {
                 logTerminal(`[Self-Healing Pipeline] All errors resolved successfully! Final Success Rate: 100%`, 'success');
             } else {
