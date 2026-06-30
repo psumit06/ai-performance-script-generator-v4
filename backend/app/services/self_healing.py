@@ -7,18 +7,25 @@ from app.services.jmx_builder import build_jmx
 from app.services.logical_reconstructor import reconstruct_logical_flow
 from app.services.llm_provider import extract_json_object, generate_text, get_llm_config, is_llm_available
 
-def run_self_healing_loop(test_plan, original_endpoints, output_path="output/generated_test_plan.jmx", max_retries=3, llm_provider=None, llm_model=None):
+def run_self_healing_loop(test_plan, original_endpoints, output_path="output/generated_test_plan.jmx", max_retries=3, llm_provider=None, llm_model=None, on_log=None):
     """
     Orchestrates the dry-run simulation and self-healing loop.
     Retries up to max_retries times if errors occur.
+    on_log: optional callback(log_type, message) for real-time streaming to frontend.
     """
+    def emit(log_type, message):
+        if on_log:
+            on_log(log_type, message)
+        print(message)
+    
     healing_history = []
     
     for iteration in range(1, max_retries + 1):
-        print(f"--- SELF-HEALING LOOP: ITERATION {iteration} ---")
+        emit("info", f"--- SELF-HEALING LOOP: ITERATION {iteration} ---")
         
         # 1. Build production JMX and a constrained validation JMX.
         # The dry run must never execute the user's full load duration.
+        emit("info", f"[Iteration {iteration}] Building JMX test plan...")
         jmx_content = build_jmx(test_plan)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(jmx_content)
@@ -29,16 +36,19 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
             f.write(build_jmx(validation_plan))
             
         # 2. Run JMeter dry-run against the constrained validation plan.
+        emit("info", f"[Iteration {iteration}] Running JMeter dry-run validation...")
         run_report = run_jmeter(validation_path)
 
         if run_report.get("dry_run_skipped"):
-            healing_history.append({
+            entry = {
                 "iteration": iteration,
                 "success": False,
                 "diagnosis": run_report.get("skip_reason", "JMeter dry run was skipped."),
                 "action_taken": "Generated JMX and completed XML validation only. Configure JMETER_BIN to run sampler validation.",
                 "failures": run_report.get("failures", [])
-            })
+            }
+            healing_history.append(entry)
+            emit("healing", json.dumps(entry))
             return {
                 "success": False,
                 "jmx_content": jmx_content,
@@ -49,7 +59,7 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
         
         # If successfully executed without failures, exit loop!
         if run_report["valid"]:
-            print("Dry run passed successfully! 100% success rate.")
+            emit("success", f"[Iteration {iteration}] Dry run passed! 100% success rate.")
             final_jmx = build_jmx(test_plan)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(final_jmx)
@@ -61,17 +71,19 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
                 "iterations": iteration
             }
             
-        print(f"Dry run encountered {len(run_report['failures'])} failures. Launching self-healing agent...")
+        emit("error", f"[Iteration {iteration}] Dry run encountered {len(run_report['failures'])} failures. Launching self-healing agent...")
 
         if not is_llm_available(llm_provider):
             config = get_llm_config(provider=llm_provider, model=llm_model)
-            healing_history.append({
+            entry = {
                 "iteration": iteration,
                 "success": False,
                 "diagnosis": f"AI self-healing is disabled or provider '{config['provider']}' is not configured.",
                 "action_taken": "Returned deterministic JMX without AI remediation.",
                 "failures": run_report["failures"]
-            })
+            }
+            healing_history.append(entry)
+            emit("healing", json.dumps(entry))
             return {
                 "success": False,
                 "jmx_content": jmx_content,
@@ -81,6 +93,7 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
             }
         
         # 3. Analyze failures and execute cognitive healing
+        emit("info", f"[Iteration {iteration}] AI analyzing failures and formulating repair...")
         healing_action = heal_failures_with_ai(
             failures=run_report["failures"],
             original_endpoints=original_endpoints,
@@ -91,14 +104,16 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
         )
         
         if not healing_action or not isinstance(healing_action, dict) or (not healing_action.get("new_extractor") and not healing_action.get("replacements")):
-            print("AI could not formulate a repair action. Aborting self-healing to prevent infinite loops.")
-            healing_history.append({
+            emit("warning", f"[Iteration {iteration}] AI could not formulate a repair action. Aborting self-healing.")
+            entry = {
                 "iteration": iteration,
                 "success": False,
                 "diagnosis": "AI could not determine a repair action.",
                 "action_taken": "Returned deterministic JMX without additional remediation.",
                 "failures": run_report["failures"]
-            })
+            }
+            healing_history.append(entry)
+            emit("healing", json.dumps(entry))
             return {
                 "success": False,
                 "jmx_content": jmx_content,
@@ -108,17 +123,21 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
             }
             
         # 4. Apply AI's recommended modifications to test_plan
+        emit("info", f"[Iteration {iteration}] Applying remediation: {healing_action.get('action_taken', '')}")
         apply_remediation(test_plan, original_endpoints, healing_action, llm_provider=llm_provider, llm_model=llm_model)
         
-        healing_history.append({
+        entry = {
             "iteration": iteration,
             "success": True,
             "diagnosis": healing_action.get("diagnosis", ""),
             "action_taken": healing_action.get("action_taken", ""),
             "failures": run_report["failures"]
-        })
+        }
+        healing_history.append(entry)
+        emit("healing", json.dumps(entry))
         
     # If we exited loop without passing successfully, return the final state
+    emit("info", f"Self-healing loop exhausted {max_retries} iterations. Building final JMX...")
     final_jmx = build_jmx(test_plan)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(final_jmx)
