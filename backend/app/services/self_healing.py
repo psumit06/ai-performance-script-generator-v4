@@ -21,11 +21,11 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
     healing_history = []
     
     for iteration in range(1, max_retries + 1):
-        emit("info", f"--- SELF-HEALING LOOP: ITERATION {iteration} ---")
+        emit("run", f"--- SELF-HEALING LOOP: ITERATION {iteration} ---")
         
         # 1. Build production JMX and a constrained validation JMX.
         # The dry run must never execute the user's full load duration.
-        emit("info", f"[Iteration {iteration}] Building JMX test plan...")
+        emit("run", f"[Iteration {iteration}] Building JMX test plan...")
         jmx_content = build_jmx(test_plan)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(jmx_content)
@@ -36,7 +36,7 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
             f.write(build_jmx(validation_plan))
             
         # 2. Run JMeter dry-run against the constrained validation plan.
-        emit("info", f"[Iteration {iteration}] Running JMeter dry-run validation...")
+        emit("system", f"[Iteration {iteration}] Running JMeter dry-run validation...")
         run_report = run_jmeter(validation_path)
 
         if run_report.get("dry_run_skipped"):
@@ -93,7 +93,7 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
             }
         
         # 3. Analyze failures and execute cognitive healing
-        emit("info", f"[Iteration {iteration}] AI analyzing failures and formulating repair...")
+        emit("thought", f"[Iteration {iteration}] AI analyzing failures and formulating repair...")
         healing_action = heal_failures_with_ai(
             failures=run_report["failures"],
             original_endpoints=original_endpoints,
@@ -104,7 +104,7 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
         )
         
         if not healing_action or not isinstance(healing_action, dict) or (not healing_action.get("new_extractor") and not healing_action.get("replacements")):
-            emit("warning", f"[Iteration {iteration}] AI could not formulate a repair action. Aborting self-healing.")
+            emit("highlight", f"[Iteration {iteration}] AI could not formulate a repair action. Aborting self-healing.")
             entry = {
                 "iteration": iteration,
                 "success": False,
@@ -123,7 +123,7 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
             }
             
         # 4. Apply AI's recommended modifications to test_plan
-        emit("info", f"[Iteration {iteration}] Applying remediation: {healing_action.get('action_taken', '')}")
+        emit("highlight", f"[Iteration {iteration}] Applying remediation: {healing_action.get('action_taken', '')}")
         apply_remediation(test_plan, original_endpoints, healing_action, llm_provider=llm_provider, llm_model=llm_model)
         
         entry = {
@@ -137,7 +137,7 @@ def run_self_healing_loop(test_plan, original_endpoints, output_path="output/gen
         emit("healing", json.dumps(entry))
         
     # If we exited loop without passing successfully, return the final state
-    emit("info", f"Self-healing loop exhausted {max_retries} iterations. Building final JMX...")
+    emit("system", f"Self-healing loop exhausted {max_retries} iterations. Building final JMX...")
     final_jmx = build_jmx(test_plan)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(final_jmx)
