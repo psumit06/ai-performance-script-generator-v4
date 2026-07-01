@@ -327,6 +327,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     // Reset UI state
     generateBtn.disabled = true;
     generateBtn.querySelector('span').textContent = 'Processing Pipeline...';
+    hideGithubUpload();
     downloadBtn.disabled = true;
     downloadBtnMain.disabled = true;
     
@@ -577,6 +578,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         drawVisualDAG(data.flow, data.endpoints, data.correlations);
         
         logTerminal(`[System] JMX Generation complete! Ready for download.`, 'success');
+        showGithubUpload();
         
         // Auto switch back to DAG Visualizer tab
         setTimeout(() => switchTab('dagTab'), 1200);
@@ -770,3 +772,87 @@ function createNodeElement(ep, correlations) {
     node.appendChild(rightArea);
     return node;
 }
+
+// =====================================
+// GitHub Upload
+// =====================================
+const githubUploadGroup = document.getElementById('githubUploadGroup');
+const githubRepoInput = document.getElementById('githubRepoName');
+const uploadToGithubBtn = document.getElementById('uploadToGithubBtn');
+
+// Show GitHub upload group after successful generation
+function showGithubUpload() {
+    githubUploadGroup.style.display = 'block';
+    uploadToGithubBtn.disabled = false;
+    lucide.createIcons();
+}
+
+// Hide GitHub upload group
+function hideGithubUpload() {
+    githubUploadGroup.style.display = 'none';
+    uploadToGithubBtn.disabled = true;
+}
+
+// Enable/disable upload button based on repo name input
+githubRepoInput.addEventListener('input', () => {
+    uploadToGithubBtn.disabled = !githubRepoInput.value.trim() || !generatedJmxContent;
+});
+
+// Upload to GitHub handler
+uploadToGithubBtn.addEventListener('click', async () => {
+    const repoName = githubRepoInput.value.trim();
+    if (!repoName || !generatedJmxContent) return;
+
+    uploadToGithubBtn.disabled = true;
+    uploadToGithubBtn.querySelector('span').textContent = 'Uploading...';
+
+    // Build CSV files dict if any
+    let csvFilesDict = null;
+    if (selectedCsvFiles && selectedCsvFiles.length > 0) {
+        csvFilesDict = {};
+        for (const csvFile of selectedCsvFiles) {
+            const text = await csvFile.text();
+            csvFilesDict[csvFile.name] = text;
+        }
+    }
+
+    try {
+        const response = await fetch('/api/github/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                repo_name: repoName,
+                jmx_content: generatedJmxContent,
+                jmx_filename: selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, "") + "_generated.jmx" : "generated_test_plan.jmx",
+                csv_files: csvFilesDict,
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            const detail = result.detail || {};
+            const message = detail.message || result.error || `Upload failed with HTTP ${response.status}.`;
+            showUserAlert(message);
+            return;
+        }
+
+        if (result.success) {
+            logTerminal(`[GitHub] Successfully uploaded to ${result.owner}/${result.repo}:`, 'success');
+            result.uploaded.forEach(f => {
+                logTerminal(`   -> ${f.file}`, 'success');
+            });
+        } else {
+            logTerminal(`[GitHub] Upload completed with errors:`, 'error');
+            result.errors.forEach(e => {
+                logTerminal(`   -> ${e.file}: ${e.error}`, 'error');
+            });
+        }
+    } catch (err) {
+        logTerminal(`[GitHub Upload Error] ${err.message}`, 'error');
+        showUserAlert(`GitHub upload failed: ${err.message}`);
+    } finally {
+        uploadToGithubBtn.disabled = false;
+        uploadToGithubBtn.querySelector('span').textContent = 'Upload to GitHub';
+    }
+});
