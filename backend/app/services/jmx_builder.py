@@ -161,7 +161,11 @@ testname="{escape_xml(request['name'])}"
 enabled="true">
 
 <elementProp name="HTTPsampler.Arguments"
-elementType="Arguments">
+elementType="Arguments"
+guiclass="HTTPArgumentsPanel"
+testclass="Arguments"
+testname="User Defined Variables"
+enabled="true">
 
 <collectionProp name="Arguments.arguments">
 """

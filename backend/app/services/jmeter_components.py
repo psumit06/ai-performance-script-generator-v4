@@ -1,8 +1,7 @@
 from typing import List
 from app.services.xml_helpers import (
     string_prop,
-    bool_prop,
-    int_prop
+    bool_prop
 )
 
 
@@ -30,6 +29,17 @@ enabled="true">
     xml += bool_prop(
         "TestPlan.serialize_threadgroups",
         False
+    )
+
+    xml += """
+<elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+<collectionProp name="Arguments.arguments"/>
+</elementProp>
+"""
+
+    xml += bool_prop(
+        "TestPlan.tearDown_on_shutdown",
+        True
     )
 
     xml += "</TestPlan>"
@@ -65,7 +75,7 @@ enabled="true">
     False
 )}
 
-{int_prop(
+{string_prop(
     "LoopController.loops",
     loops
 )}
