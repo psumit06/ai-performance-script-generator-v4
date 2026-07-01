@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from .api.routes_generate import router as generate_router
+from .api.routes_github import router as github_router
 
 app = FastAPI()
 
@@ -67,3 +68,4 @@ def favicon():
     return Response(status_code=204)
 
 app.include_router(generate_router, prefix="/api")
+app.include_router(github_router, prefix="/api")
