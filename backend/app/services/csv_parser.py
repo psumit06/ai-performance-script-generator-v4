@@ -27,6 +27,8 @@ def parse_csv_file(content: str, filename: str) -> Dict[str, Any]:
     result = {
         "filename": filename,
         "variables": [],
+        "data_rows": [],
+        "value_mappings": [],
         "row_count": 0,
         "sample_row": None,
         "delimiter": ",",
@@ -71,6 +73,18 @@ def parse_csv_file(content: str, filename: str) -> Dict[str, Any]:
                 row_count += 1
                 if sample_row is None and len(row) >= len(variables):
                     sample_row = row[:len(variables)]  # Take only as many columns as headers
+
+                row_values = row[:len(variables)]
+                result["data_rows"].append(row_values)
+                for index, variable in enumerate(variables):
+                    if index >= len(row_values):
+                        continue
+                    value = row_values[index].strip()
+                    if value:
+                        result["value_mappings"].append({
+                            "value": value,
+                            "variable": variable
+                        })
         
         result["row_count"] = row_count
         result["sample_row"] = sample_row
