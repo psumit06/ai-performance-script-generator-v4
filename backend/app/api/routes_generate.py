@@ -35,6 +35,9 @@ from app.services.csv_parser import (
     parse_csv_file,
     validate_csv_for_jmeter
 )
+from app.services.csv_parameterizer import (
+    parameterize_endpoints_from_csv
+)
 
 router = APIRouter()
 
@@ -138,6 +141,7 @@ async def generate_from_file(
         # =====================================
         parsed_data = parse_api_spec(raw_content)
         all_endpoints = parsed_data["endpoints"]
+        parameterize_endpoints_from_csv(all_endpoints, csv_data_list)
         print(f"Ingested {len(all_endpoints)} endpoints.")
 
         # =====================================
@@ -209,7 +213,7 @@ async def generate_from_file(
                     test_plan=test_plan,
                     original_endpoints=correlated_endpoints,
                     output_path=output_path,
-                    max_retries=7,
+                    max_retries=3,
                     llm_provider=effective_provider,
                     llm_model=effective_model,
                     on_log=on_log
