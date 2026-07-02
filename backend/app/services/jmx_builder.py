@@ -59,6 +59,26 @@ def append_query_params_to_path(path, query_params):
     separator = "&" if "?" in path else "?"
     return f"{path}{separator}{'&'.join(pairs)}"
 
+def infer_raw_body_content_type(raw_body):
+    """
+    Infers Content-Type for raw bodies from the payload shape.
+    """
+    body = (raw_body or "").lstrip()
+    if body.startswith("<?xml") or body.startswith("<"):
+        return "application/xml"
+    if body.startswith("{") or body.startswith("["):
+        return "application/json"
+    return "application/json"
+
+def content_type_for_body(body_mode, raw_body):
+    if body_mode == "urlencoded":
+        return "application/x-www-form-urlencoded"
+    if body_mode == "formdata":
+        return "multipart/form-data"
+    if body_mode == "raw":
+        return infer_raw_body_content_type(raw_body)
+    return ""
+
 def render_extractor(ext):
     """
     Renders the exact JMeter Post-Processor element depending on type.
@@ -289,6 +309,7 @@ elementType="HTTPArgument">
     # Render Header Manager if headers present (or if we need to add Content-Type)
     has_content_type = any(h.get("key", "").lower() == "content-type" for h in headers)
     needs_content_type = not has_content_type and body_mode in ("urlencoded", "formdata", "raw")
+    inferred_content_type = content_type_for_body(body_mode, raw_body)
     
     if headers or needs_content_type:
         xml += """
@@ -311,6 +332,8 @@ enabled="true">
             # For urlencoded, skip incorrect Content-Type headers
             if body_mode == "urlencoded" and key.lower() == "content-type":
                 continue
+            if body_mode == "raw" and key.lower() == "content-type":
+                value = inferred_content_type
                 
             xml += f"""
 <elementProp name=""
@@ -325,15 +348,7 @@ elementType="Header">
         
         # Auto-add Content-Type based on body mode if not already present
         if needs_content_type:
-            if body_mode == "urlencoded":
-                ct_value = "application/x-www-form-urlencoded"
-            elif body_mode == "formdata":
-                ct_value = "multipart/form-data"
-            elif body_mode == "raw":
-                # Default to JSON for raw bodies
-                ct_value = "application/json"
-            else:
-                ct_value = ""
+            ct_value = inferred_content_type
             
             if ct_value:
                 xml += f"""
