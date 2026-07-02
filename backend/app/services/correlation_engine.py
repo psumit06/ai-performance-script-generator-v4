@@ -312,7 +312,7 @@ def infer_postman_variable_correlations(endpoints):
             if best_json_path:
                 json_path = best_json_path
             else:
-                json_path = "$.access_token" if "token" in token_key.lower() else f"$.{token_key}"
+                json_path = "$.access_token" if any(t in token_key.lower() for t in ["token", "auth", "bearer", "jwt", "session"]) else f"$.{token_key}"
 
 
         actual_var_name = ensure_extractor(source_ep, {
