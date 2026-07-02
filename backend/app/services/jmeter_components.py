@@ -156,6 +156,8 @@ enabled="true">
 
 {string_prop("delimiter", delimiter)}
 
+{bool_prop("ignoreFirstLine", True)}
+
 {bool_prop("quotedData", False)}
 
 {bool_prop("recycle", True)}
