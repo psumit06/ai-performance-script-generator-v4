@@ -1,5 +1,5 @@
 import json
-from urllib.parse import urlencode
+from urllib.parse import quote_plus
 from app.services.jmeter_components import (
     build_test_plan,
     build_thread_group,
@@ -37,6 +37,27 @@ def split_variable_host_path(host, path, full_url):
         suffix = "/" + suffix
 
     return variable_host, suffix
+
+def append_query_params_to_path(path, query_params):
+    """
+    Keeps query params in the URL for raw-body samplers.
+    JMeter treats Arguments as Body Data when postBodyRaw=true.
+    """
+    enabled_params = [
+        param for param in query_params
+        if param.get("enabled", True) and param.get("key", "") != ""
+    ]
+    if not enabled_params:
+        return path
+
+    pairs = []
+    for param in enabled_params:
+        key = quote_plus(str(param.get("key", "")), safe="$}{")
+        value = quote_plus(str(param.get("value", "")), safe="$}{")
+        pairs.append(f"{key}={value}")
+
+    separator = "&" if "?" in path else "?"
+    return f"{path}{separator}{'&'.join(pairs)}"
 
 def render_extractor(ext):
     """
@@ -155,6 +176,8 @@ def render_sampler(request):
         path = request.get("full_url")
 
     host, path = split_variable_host_path(host, path, request.get("full_url", ""))
+    if body_mode == "raw":
+        path = append_query_params_to_path(path, query_params)
     
     xml = f"""
 <HTTPSamplerProxy guiclass="HttpTestSampleGui"
@@ -173,8 +196,10 @@ enabled="true">
 """
 
     # Query Params
-    for param in query_params:
-        xml += build_http_argument(param.get("key", ""), param.get("value", ""))
+    if body_mode != "raw":
+        for param in query_params:
+            if param.get("enabled", True):
+                xml += build_http_argument(param.get("key", ""), param.get("value", ""))
 
     # Form Data body (text fields only - files go in separate collection)
     if body_mode == "formdata":
