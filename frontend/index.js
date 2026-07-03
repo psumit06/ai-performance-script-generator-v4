@@ -79,7 +79,16 @@ function initFunctionalParameterization() {
     toggle.addEventListener('change', () => {
         if (toggle.checked) {
             rulesUploadGroup.classList.remove('hidden');
-            if (selectedFile) analyzeParameterizationCandidates();
+            if (selectedFile) {
+                analyzeParameterizationCandidates();
+            } else {
+                const panel = document.getElementById('paramReviewPanel');
+                const summary = document.getElementById('paramReviewSummary');
+                const list = document.getElementById('paramCandidateList');
+                panel.classList.remove('hidden');
+                summary.textContent = 'Waiting for file';
+                list.innerHTML = '<div class="param-empty">Upload a Postman collection or HAR file to auto-detect parameterizable values.</div>';
+            }
         } else {
             rulesUploadGroup.classList.add('hidden');
             resetFunctionalParameterizationReview();
@@ -145,9 +154,11 @@ function handleRulesFileSelect(file) {
     selectedRulesFile = file;
     updateRulesDropzoneUI();
     logTerminal(`[Functional Param] Loaded replacement rules: ${file.name} (${formatBytes(file.size)})`, 'system');
-    // Re-analyze if toggle is on and file is loaded
     if (document.getElementById('functionalParamEnabled').checked && selectedFile) {
+        logTerminal(`[Functional Param] Re-analyzing with rules + auto-detected candidates...`, 'system');
         analyzeParameterizationCandidates();
+    } else if (document.getElementById('functionalParamEnabled').checked && !selectedFile) {
+        logTerminal(`[Functional Param] Rules loaded. Upload a Postman collection to analyze candidates.`, 'system');
     }
 }
 
@@ -221,10 +232,25 @@ async function analyzeParameterizationCandidates() {
             const ruleCount = functionalParamCandidates.filter(c => c.source === 'rule').length;
             const autoCount = functionalParamCandidates.filter(c => c.source === 'auto_detected').length;
             const selectedCount = functionalParamCandidates.filter(c => c.selected_by_default).length;
-            summary.textContent = `${functionalParamCandidates.length} candidate(s) \u2014 ${ruleCount} from rules, ${autoCount} auto-detected \u2014 ${selectedCount} selected`;
+            const rulesLoaded = data.rules_loaded || 0;
+
+            let summaryText = `${functionalParamCandidates.length} candidate(s) \u2014 ${autoCount} auto-detected`;
+            if (ruleCount > 0) {
+                summaryText += `, ${ruleCount} from rules`;
+            }
+            summaryText += ` \u2014 ${selectedCount} selected`;
+            summary.textContent = summaryText;
+
             renderParamCandidates(getFilteredCandidates());
             syncSelectAllCheckbox();
-            logTerminal(`[Functional Param] Detected ${functionalParamCandidates.length} candidates (${ruleCount} rule-based, ${autoCount} auto-detected, ${selectedCount} pre-selected).`, 'success');
+
+            let logMsg = `[Functional Param] Detected ${functionalParamCandidates.length} candidates (${ruleCount} rule-based, ${autoCount} auto-detected, ${selectedCount} pre-selected).`;
+            if (rulesLoaded > 0 && autoCount > 0) {
+                logMsg += ` Rules and auto-detected candidates merged.`;
+            } else if (autoCount > 0 && ruleCount === 0) {
+                logMsg += ` Upload a rules JSON to add rule-based candidates.`;
+            }
+            logTerminal(logMsg, 'success');
         }
     } catch (err) {
         summary.textContent = 'Analysis failed';
@@ -300,7 +326,12 @@ function updateParamSummaryCount() {
     const selected = functionalParamCandidates.filter(c => c.selected_by_default).length;
     const ruleCount = functionalParamCandidates.filter(c => c.source === 'rule').length;
     const autoCount = functionalParamCandidates.filter(c => c.source === 'auto_detected').length;
-    summary.textContent = `${total} candidate(s) \u2014 ${ruleCount} from rules, ${autoCount} auto-detected \u2014 ${selected} selected`;
+    let text = `${total} candidate(s) \u2014 ${autoCount} auto-detected`;
+    if (ruleCount > 0) {
+        text += `, ${ruleCount} from rules`;
+    }
+    text += ` \u2014 ${selected} selected`;
+    summary.textContent = text;
 }
 
 function escapeHtml(str) {
