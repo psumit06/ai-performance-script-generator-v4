@@ -140,10 +140,13 @@ async def analyze_parameterization(
     parameterize_endpoints_from_csv(all_endpoints, csv_data_list)
     candidates = analyze_functional_parameterization(all_endpoints, rules_config)
 
+    pre_selected_ids = [c["id"] for c in candidates if c.get("selected_by_default")]
+
     return {
         "filename": file.filename,
         "candidate_count": len(candidates),
         "candidates": candidates,
+        "pre_selected_ids": pre_selected_ids,
         "csv_files": [
             {
                 "filename": csv["filename"],
