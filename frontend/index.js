@@ -77,6 +77,7 @@ function initFunctionalParameterization() {
     });
 
     toggle.addEventListener('change', () => {
+        console.log(`[DEBUG] Toggle changed. checked=${toggle.checked}, selectedFile=${selectedFile ? selectedFile.name : 'NULL'}`);
         if (toggle.checked) {
             rulesUploadGroup.classList.remove('hidden');
             if (selectedFile) {
@@ -179,6 +180,7 @@ function updateRulesDropzoneUI() {
 }
 
 async function analyzeParameterizationCandidates() {
+    console.log(`[DEBUG] analyzeParameterizationCandidates called. selectedFile=${selectedFile ? selectedFile.name : 'NULL'}`);
     if (!selectedFile) return;
 
     const panel = document.getElementById('paramReviewPanel');
@@ -213,6 +215,7 @@ async function analyzeParameterizationCandidates() {
         }
 
         const data = await response.json();
+        console.log(`[DEBUG] analyze response: candidate_count=${data.candidate_count}, candidates length=${(data.candidates || []).length}, pre_selected_ids=${(data.pre_selected_ids || []).length}`);
         functionalParamCandidates = data.candidates || [];
         const preSelectedIds = new Set(data.pre_selected_ids || []);
 
@@ -223,6 +226,8 @@ async function analyzeParameterizationCandidates() {
         });
 
         functionalParamReviewed = true;
+
+        console.log(`[DEBUG] functionalParamCandidates.length=${functionalParamCandidates.length}, filtered=${getFilteredCandidates().length}`);
 
         if (functionalParamCandidates.length === 0) {
             summary.textContent = 'No candidates found';
@@ -470,6 +475,7 @@ function initDragAndDrop() {
 }
 
 function handleFileSelect(file) {
+    console.log(`[DEBUG] handleFileSelect called. file=${file ? file.name : 'NULL'}, toggle=${document.getElementById('functionalParamEnabled').checked}`);
     selectedFile = file;
     const dropzoneText = document.getElementById('dropzoneText');
     const dropzone = document.getElementById('dropzone');
@@ -494,7 +500,10 @@ function handleFileSelect(file) {
 
     // Re-analyze functional parameterization if toggle is enabled
     if (document.getElementById('functionalParamEnabled').checked) {
+        console.log(`[DEBUG] handleFileSelect: toggle is checked, calling analyzeParameterizationCandidates`);
         analyzeParameterizationCandidates();
+    } else {
+        console.log(`[DEBUG] handleFileSelect: toggle is NOT checked, skipping analysis`);
     }
 }
 
