@@ -104,6 +104,7 @@ def candidate_base(endpoint: Dict[str, Any], location: str, field_path: str, ori
 
 def detect_rule_candidates(endpoint: Dict[str, Any], text: str, location: str, field_path: str, rules: List[Dict[str, Any]]):
     candidates = []
+    text_str = str(text) if text is not None else ""
     for rule in rules or []:
         replacement = rule.get("replacement")
         if not replacement:
@@ -116,12 +117,12 @@ def detect_rule_candidates(endpoint: Dict[str, Any], text: str, location: str, f
 
         matches = []
         if value_regex:
-            matches = [match.group(0) for match in re.finditer(value_regex, text or "")]
-        elif value_pattern and value_matches(text or "", value_pattern):
-            match = re.search(UUID_RE if value_pattern == "uuid" else re.escape(text), text or "")
-            matches = [match.group(0)] if match else [text]
+            matches = [match.group(0) for match in re.finditer(value_regex, text_str)]
+        elif value_pattern and value_matches(text_str, value_pattern):
+            match = re.search(UUID_RE if value_pattern == "uuid" else re.escape(text_str), text_str)
+            matches = [match.group(0)] if match else [text_str]
         elif not value_pattern:
-            matches = [text]
+            matches = [text_str]
 
         for original_value in matches:
             candidate = candidate_base(endpoint, location, field_path, original_value)
@@ -139,7 +140,8 @@ def detect_rule_candidates(endpoint: Dict[str, Any], text: str, location: str, f
 
 def detect_auto_candidates(endpoint: Dict[str, Any], text: str, location: str, field_path: str):
     candidates = []
-    if not text or has_jmeter_expression(text):
+    text_str = str(text) if text is not None else ""
+    if not text_str or has_jmeter_expression(text_str):
         return candidates
 
     lower_field = (field_path or "").lower()
@@ -148,7 +150,7 @@ def detect_auto_candidates(endpoint: Dict[str, Any], text: str, location: str, f
     field_is_email = _field_has_tokens(field_path, EMAIL_FIELD_TOKENS)
     field_is_phone = _field_has_tokens(field_path, PHONE_FIELD_TOKENS)
 
-    for match in UUID_RE.finditer(text):
+    for match in UUID_RE.finditer(text_str):
         if field_is_uuid:
             conf = "high"
             reason = "UUID-like value in ID/correlation field"
@@ -161,7 +163,7 @@ def detect_auto_candidates(endpoint: Dict[str, Any], text: str, location: str, f
             "reason": reason,
             "confidence": conf,
             "source": "auto_detected",
-            "selected_by_default": False,
+            "selected_by_default": conf == "extremely_high",
             "auto_apply": False,
         })
         add_candidate(candidates, candidate)
@@ -170,7 +172,7 @@ def detect_auto_candidates(endpoint: Dict[str, Any], text: str, location: str, f
         (TIMESTAMP_14_RE, "${__time(yyyyMMddHHmmss,)}", "14-digit timestamp-like value"),
         (TIMESTAMP_12_RE, "${__time(yyyyMMddHHmm,)}", "12-digit timestamp-like value"),
     ):
-        for match in regex.finditer(text):
+        for match in regex.finditer(text_str):
             if field_is_ts:
                 conf = "high"
             else:
@@ -181,12 +183,12 @@ def detect_auto_candidates(endpoint: Dict[str, Any], text: str, location: str, f
                 "reason": reason,
                 "confidence": conf,
                 "source": "auto_detected",
-                "selected_by_default": False,
+                "selected_by_default": conf == "extremely_high",
                 "auto_apply": False,
             })
             add_candidate(candidates, candidate)
 
-    for match in EMAIL_RE.finditer(text):
+    for match in EMAIL_RE.finditer(text_str):
         conf = "high" if field_is_email else "medium"
         reason = "Email-like value in email field" if field_is_email else "Email-like value detected"
         candidate = candidate_base(endpoint, location, field_path, match.group(0))
@@ -195,12 +197,12 @@ def detect_auto_candidates(endpoint: Dict[str, Any], text: str, location: str, f
             "reason": reason,
             "confidence": conf,
             "source": "auto_detected",
-            "selected_by_default": False,
+            "selected_by_default": conf == "extremely_high",
             "auto_apply": False,
         })
         add_candidate(candidates, candidate)
 
-    for match in PHONE_RE.finditer(text):
+    for match in PHONE_RE.finditer(text_str):
         conf = "high" if field_is_phone else "medium"
         reason = "Phone-like value in phone/mobile field" if field_is_phone else "Phone-like value detected"
         candidate = candidate_base(endpoint, location, field_path, match.group(0))
@@ -209,7 +211,7 @@ def detect_auto_candidates(endpoint: Dict[str, Any], text: str, location: str, f
             "reason": reason,
             "confidence": conf,
             "source": "auto_detected",
-            "selected_by_default": False,
+            "selected_by_default": conf == "extremely_high",
             "auto_apply": False,
         })
         add_candidate(candidates, candidate)
@@ -225,8 +227,8 @@ def inspect_json_value(endpoint: Dict[str, Any], value: Any, location: str, fiel
     elif isinstance(value, list):
         for index, child in enumerate(value):
             candidates.extend(inspect_json_value(endpoint, child, location, f"{field_path}[{index}]", rules))
-    elif isinstance(value, (str, int, float)):
-        text = str(value)
+    elif isinstance(value, (str, int, float, bool)) or value is None:
+        text = str(value) if value is not None else ""
         candidates.extend(detect_rule_candidates(endpoint, text, location, field_path, rules))
         candidates.extend(detect_auto_candidates(endpoint, text, location, field_path))
     return candidates
@@ -289,10 +291,19 @@ def analyze_functional_parameterization(endpoints: List[Dict[str, Any]], rules_c
         for location in ("query_params", "headers", "form_data", "urlencoded", "multipart_files"):
             for item in endpoint.get(location, []) or []:
                 field_path = item.get("key") or location
-                value = item.get("value") or item.get("src") or ""
+                value = item.get("value")
+                if value is None:
+                    value = item.get("src")
+                if value is None:
+                    value = ""
+                value = str(value)
                 candidates.extend(detect_rule_candidates(endpoint, value, location, field_path, rules))
                 candidates.extend(detect_auto_candidates(endpoint, value, location, field_path))
-    return candidates
+    
+    # Sort candidates: rules first (second phase), auto_detected second (third phase)
+    rules_list = [c for c in candidates if c.get("source") == "rule"]
+    auto_list = [c for c in candidates if c.get("source") == "auto_detected"]
+    return rules_list + auto_list
 
 
 def replace_outside_jmeter_expressions(text: str, original: str, replacement: str):
@@ -337,17 +348,31 @@ def apply_functional_parameterization(
     selected_ids: Optional[Set[str]] = None,
     include_auto_apply: bool = True,
 ):
-    selected_ids = selected_ids or set()
     applied = []
     by_index = {endpoint.get("source_index", index): endpoint for index, endpoint in enumerate(endpoints or [])}
+    
+    # Avoid duplicate/conflicting replacements on the same parameter path
+    applied_targets = set()
+    
     for candidate in candidates or []:
-        should_apply = candidate.get("id") in selected_ids or (include_auto_apply and candidate.get("auto_apply"))
+        target_key = (candidate.get("request_index"), candidate.get("location"), candidate.get("field_path"))
+        if target_key in applied_targets:
+            continue
+
+        # If selected_ids is explicitly provided, only apply selected candidates.
+        # Otherwise, fall back to auto_apply check.
+        if selected_ids is not None:
+            should_apply = candidate.get("id") in selected_ids
+        else:
+            should_apply = include_auto_apply and candidate.get("auto_apply")
+
         if not should_apply:
             continue
         endpoint = by_index.get(candidate.get("request_index"))
         if endpoint is None:
             continue
         apply_candidate_to_endpoint(endpoint, candidate)
+        applied_targets.add(target_key)
         applied.append(candidate)
     return applied
 
