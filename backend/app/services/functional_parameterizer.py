@@ -9,8 +9,7 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 UUID_RE = re.compile(
     r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
 )
-TIMESTAMP_14_RE = re.compile(r"\b(20\d{12})\b")
-TIMESTAMP_12_RE = re.compile(r"\b(20\d{10})\b")
+TIMESTAMP_RE = re.compile(r"\b(20\d{8,12})\b")
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 PHONE_RE = re.compile(r"\b[6-9]\d{9}\b")
 JMETER_EXPR_RE = re.compile(r"\$\{[^}]+\}")
@@ -73,9 +72,9 @@ def value_matches(value: str, pattern: str) -> bool:
     if pattern == "phone":
         return bool(PHONE_RE.search(value))
     if pattern == "timestamp_14":
-        return bool(TIMESTAMP_14_RE.search(value))
+        return bool(TIMESTAMP_RE.search(value))
     if pattern == "timestamp_12":
-        return bool(TIMESTAMP_12_RE.search(value))
+        return bool(TIMESTAMP_RE.search(value))
     return False
 
 
@@ -168,25 +167,24 @@ def detect_auto_candidates(endpoint: Dict[str, Any], text: str, location: str, f
         })
         add_candidate(candidates, candidate)
 
-    for regex, replacement, reason in (
-        (TIMESTAMP_14_RE, "${__time(yyyyMMddHHmmss,)}", "14-digit timestamp-like value"),
-        (TIMESTAMP_12_RE, "${__time(yyyyMMddHHmm,)}", "12-digit timestamp-like value"),
-    ):
-        for match in regex.finditer(text_str):
-            if field_is_ts:
-                conf = "high"
-            else:
-                conf = "medium"
-            candidate = candidate_base(endpoint, location, field_path, match.group(1))
-            candidate.update({
-                "replacement": replacement,
-                "reason": reason,
-                "confidence": conf,
-                "source": "auto_detected",
-                "selected_by_default": conf == "extremely_high",
-                "auto_apply": False,
-            })
-            add_candidate(candidates, candidate)
+    for match in TIMESTAMP_RE.finditer(text_str):
+        ts_len = len(match.group(1))
+        if field_is_ts:
+            conf = "high"
+        else:
+            conf = "medium"
+        fmt = {10: "yyyyMMddHH", 11: "yyyyMMddHHm", 12: "yyyyMMddHHmm", 13: "yyyyMMddHHmmS", 14: "yyyyMMddHHmmss"}.get(ts_len, "yyyyMMddHHmm")
+        replacement = f"${{__time({fmt},)}}"
+        candidate = candidate_base(endpoint, location, field_path, match.group(1))
+        candidate.update({
+            "replacement": replacement,
+            "reason": f"{ts_len}-digit timestamp-like value",
+            "confidence": conf,
+            "source": "auto_detected",
+            "selected_by_default": conf == "extremely_high",
+            "auto_apply": False,
+        })
+        add_candidate(candidates, candidate)
 
     for match in EMAIL_RE.finditer(text_str):
         conf = "high" if field_is_email else "medium"
