@@ -38,8 +38,74 @@ from app.services.csv_parser import (
 from app.services.csv_parameterizer import (
     parameterize_endpoints_from_csv
 )
+from app.services.functional_parameterizer import (
+    analyze_functional_parameterization,
+    apply_functional_parameterization,
+    load_rules_json
+)
 
 router = APIRouter()
+
+
+async def process_csv_uploads(csv_files: Optional[List[UploadFile]] = None):
+    csv_data_list = []
+    if not csv_files:
+        return csv_data_list
+
+    MAX_CSV_FILE_SIZE = 15 * 1024 * 1024  # 15MB
+    for csv_file in csv_files:
+        if not csv_file.filename:
+            continue
+
+        csv_content = await csv_file.read()
+        if len(csv_content) > MAX_CSV_FILE_SIZE:
+            print(f"CSV file {csv_file.filename} too large. Maximum size is {MAX_CSV_FILE_SIZE // (1024*1024)}MB. Skipping.")
+            continue
+
+        csv_content = csv_content.decode("utf-8", errors="ignore")
+        parsed_csv = parse_csv_file(csv_content, csv_file.filename)
+
+        if parsed_csv.get("error"):
+            print(f"CSV parsing error for {csv_file.filename}: {parsed_csv['error']}")
+            continue
+
+        validation = validate_csv_for_jmeter(parsed_csv)
+        if not validation["valid"]:
+            print(f"CSV validation failed for {csv_file.filename}: {validation['errors']}")
+            continue
+
+        csv_data_list.append(parsed_csv)
+        print(f"CSV file processed: {csv_file.filename} with {len(parsed_csv['variables'])} variables, {parsed_csv['row_count']} rows")
+
+    return csv_data_list
+
+
+async def read_rules_upload(replacement_rules: Optional[UploadFile] = None):
+    if not replacement_rules or not replacement_rules.filename:
+        return {"rules": []}
+    raw_rules = await replacement_rules.read()
+    try:
+        return load_rules_json(raw_rules.decode("utf-8", errors="ignore"))
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_REPLACEMENT_RULES",
+                "message": f"Replacement rules JSON is invalid: {exc}"
+            }
+        )
+
+
+def parse_selected_candidate_ids(selected_parameterization_ids: str | None):
+    if not selected_parameterization_ids:
+        return set()
+    try:
+        parsed = json.loads(selected_parameterization_ids)
+        if isinstance(parsed, list):
+            return {str(item) for item in parsed}
+    except json.JSONDecodeError:
+        pass
+    return {item.strip() for item in selected_parameterization_ids.split(",") if item.strip()}
 
 @router.get("/llm-providers")
 def llm_providers():
@@ -57,6 +123,38 @@ def llm_providers():
         ]
     }
 
+
+@router.post("/analyze-parameterization")
+async def analyze_parameterization(
+    file: UploadFile = File(...),
+    csv_files: Optional[List[UploadFile]] = File(default=None),
+    replacement_rules: Optional[UploadFile] = File(default=None)
+):
+    raw_content = await file.read()
+    raw_content = raw_content.decode("utf-8", errors="ignore")
+    csv_data_list = await process_csv_uploads(csv_files)
+    rules_config = await read_rules_upload(replacement_rules)
+
+    parsed_data = parse_api_spec(raw_content)
+    all_endpoints = parsed_data["endpoints"]
+    parameterize_endpoints_from_csv(all_endpoints, csv_data_list)
+    candidates = analyze_functional_parameterization(all_endpoints, rules_config)
+
+    return {
+        "filename": file.filename,
+        "candidate_count": len(candidates),
+        "candidates": candidates,
+        "csv_files": [
+            {
+                "filename": csv["filename"],
+                "variables": csv["variables"],
+                "row_count": csv["row_count"]
+            }
+            for csv in csv_data_list
+        ],
+        "rules_loaded": len(rules_config.get("rules", []))
+    }
+
 @router.post("/generate-from-file")
 async def generate_from_file(
     users: int,
@@ -67,8 +165,11 @@ async def generate_from_file(
     ai_enabled: bool = Query(default=True),
     llm_provider: str | None = Query(default=None),
     llm_model: str | None = Query(default=None),
+    functional_parameterization: bool = Query(default=False),
+    selected_parameterization_ids: str | None = Query(default=None),
     file: UploadFile = File(...),
-    csv_files: Optional[List[UploadFile]] = File(default=None)
+    csv_files: Optional[List[UploadFile]] = File(default=None),
+    replacement_rules: Optional[UploadFile] = File(default=None)
 ):
     try:
         effective_provider = llm_provider if ai_enabled else "none"
@@ -108,33 +209,7 @@ async def generate_from_file(
         # =====================================
         # 1.5. PROCESS CSV FILES (if any)
         # =====================================
-        csv_data_list = []
-        if csv_files:
-            MAX_CSV_FILE_SIZE = 15 * 1024 * 1024  # 15MB
-            for csv_file in csv_files:
-                if csv_file.filename:
-                    csv_content = await csv_file.read()
-                    
-                    # Validate CSV file size
-                    if len(csv_content) > MAX_CSV_FILE_SIZE:
-                        print(f"CSV file {csv_file.filename} too large. Maximum size is {MAX_CSV_FILE_SIZE // (1024*1024)}MB. Skipping.")
-                        continue
-                    
-                    csv_content = csv_content.decode("utf-8", errors="ignore")
-                    
-                    parsed_csv = parse_csv_file(csv_content, csv_file.filename)
-                    
-                    if parsed_csv.get("error"):
-                        print(f"CSV parsing error for {csv_file.filename}: {parsed_csv['error']}")
-                        continue
-                    
-                    validation = validate_csv_for_jmeter(parsed_csv)
-                    if not validation["valid"]:
-                        print(f"CSV validation failed for {csv_file.filename}: {validation['errors']}")
-                        continue
-                    
-                    csv_data_list.append(parsed_csv)
-                    print(f"CSV file processed: {csv_file.filename} with {len(parsed_csv['variables'])} variables, {parsed_csv['row_count']} rows")
+        csv_data_list = await process_csv_uploads(csv_files)
 
         # =====================================
         # 2. SCHEMA INGESTION & PARSING
@@ -142,6 +217,19 @@ async def generate_from_file(
         parsed_data = parse_api_spec(raw_content)
         all_endpoints = parsed_data["endpoints"]
         parameterize_endpoints_from_csv(all_endpoints, csv_data_list)
+        parameterization_candidates = []
+        applied_parameterizations = []
+        if functional_parameterization:
+            rules_config = await read_rules_upload(replacement_rules)
+            selected_ids = parse_selected_candidate_ids(selected_parameterization_ids)
+            parameterization_candidates = analyze_functional_parameterization(all_endpoints, rules_config)
+            applied_parameterizations = apply_functional_parameterization(
+                all_endpoints,
+                parameterization_candidates,
+                selected_ids=selected_ids,
+                include_auto_apply=True
+            )
+            print(f"Functional Parameterization: Applied {len(applied_parameterizations)} of {len(parameterization_candidates)} candidates.")
         print(f"Ingested {len(all_endpoints)} endpoints.")
 
         # =====================================
@@ -280,6 +368,13 @@ async def generate_from_file(
                                 }
                                 for csv in csv_data_list
                             ],
+                            "functional_parameterization": {
+                                "enabled": functional_parameterization,
+                                "candidate_count": len(parameterization_candidates),
+                                "applied_count": len(applied_parameterizations),
+                                "candidates": parameterization_candidates,
+                                "applied": applied_parameterizations
+                            },
                             "flow": logical_flow,
                             "endpoints": [
                                 {
