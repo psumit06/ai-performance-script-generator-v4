@@ -242,61 +242,56 @@ function renderParamCandidates(candidates) {
         return;
     }
 
-    const table = document.createElement('div');
-    table.className = 'param-candidate-table';
-
-    const header = document.createElement('div');
-    header.className = 'param-table-header';
-    header.innerHTML = `
-        <span class="param-th param-th-check"></span>
-        <span class="param-th param-th-req">Request</span>
-        <span class="param-th param-th-loc">Location</span>
-        <span class="param-th param-th-field">Field/Path</span>
-        <span class="param-th param-th-current">Current Value</span>
-        <span class="param-th param-th-replace">Replacement</span>
-        <span class="param-th param-th-reason">Reason</span>
-        <span class="param-th param-th-conf">Confidence</span>
-        <span class="param-th param-th-src">Source</span>
-    `;
-    table.appendChild(header);
-
     candidates.forEach((candidate, idx) => {
-        const row = document.createElement('div');
-        row.className = 'param-table-row';
-        if (candidate.selected_by_default) row.classList.add('selected');
+        const card = document.createElement('div');
+        card.className = 'param-candidate-card';
+        if (candidate.selected_by_default) card.classList.add('selected');
 
         const confClass = candidate.confidence === 'high' ? 'high'
             : candidate.confidence === 'medium' ? 'medium'
             : 'low';
         const srcClass = candidate.source === 'rule' ? 'rule' : 'auto';
         const checkedAttr = candidate.selected_by_default ? 'checked' : '';
+        const srcLabel = candidate.source === 'rule' ? 'Rule' : 'Auto';
 
-        row.innerHTML = `
-            <span class="param-td param-td-check">
+        card.innerHTML = `
+            <div class="param-card-header">
                 <input type="checkbox" id="paramCandidate_${idx}" ${checkedAttr} data-candidate-id="${candidate.id}">
-            </span>
-            <span class="param-td param-td-req" title="${escapeHtml(candidate.request_name || '')}">${escapeHtml(truncateValue(candidate.request_name || 'Request ' + candidate.request_index, 24))}</span>
-            <span class="param-td param-td-loc"><span class="param-loc-badge">${candidate.location}</span></span>
-            <span class="param-td param-td-field" title="${escapeHtml(candidate.field_path)}">${escapeHtml(truncateValue(candidate.field_path, 30))}</span>
-            <span class="param-td param-td-current" title="${escapeHtml(candidate.original_value)}"><code>${escapeHtml(truncateValue(candidate.original_value, 36))}</code></span>
-            <span class="param-td param-td-replace"><code class="param-replacement">${escapeHtml(candidate.replacement)}</code></span>
-            <span class="param-td param-td-reason" title="${escapeHtml(candidate.reason)}">${escapeHtml(truncateValue(candidate.reason, 36))}</span>
-            <span class="param-td param-td-conf"><span class="param-badge ${confClass}">${candidate.confidence}</span></span>
-            <span class="param-td param-td-src"><span class="param-badge ${srcClass}">${candidate.source === 'rule' ? 'Rule' : 'Auto'}</span></span>
+                <span class="param-card-req-name" title="${escapeHtml(candidate.request_name || '')}">${escapeHtml(candidate.request_name || 'Request ' + candidate.request_index)}</span>
+                <span class="param-loc-badge">${candidate.location}</span>
+                <div class="param-card-badges">
+                    <span class="param-badge ${srcClass}">${srcLabel}</span>
+                    <span class="param-badge ${confClass}">${candidate.confidence}</span>
+                </div>
+            </div>
+            <div class="param-card-body">
+                <div class="param-card-row">
+                    <span class="param-card-label">Field</span>
+                    <span class="param-card-value" title="${escapeHtml(candidate.field_path)}">${escapeHtml(candidate.field_path)}</span>
+                </div>
+                <div class="param-card-row">
+                    <span class="param-card-label">Value</span>
+                    <span class="param-card-value" title="${escapeHtml(candidate.original_value)}">${escapeHtml(candidate.original_value)}</span>
+                    <span class="param-card-arrow">&rarr;</span>
+                    <span class="param-card-value param-card-replacement">${escapeHtml(candidate.replacement)}</span>
+                </div>
+                <div class="param-card-row">
+                    <span class="param-card-label">Reason</span>
+                    <span class="param-card-reason">${escapeHtml(candidate.reason)}</span>
+                </div>
+            </div>
         `;
 
-        const checkbox = row.querySelector('input[type="checkbox"]');
+        const checkbox = card.querySelector('input[type="checkbox"]');
         checkbox.addEventListener('change', () => {
             candidate.selected_by_default = checkbox.checked;
-            row.classList.toggle('selected', checkbox.checked);
+            card.classList.toggle('selected', checkbox.checked);
             syncSelectAllCheckbox();
             updateParamSummaryCount();
         });
 
-        table.appendChild(row);
+        list.appendChild(card);
     });
-
-    list.appendChild(table);
 }
 
 function updateParamSummaryCount() {
