@@ -1,6 +1,9 @@
 // App State
 let selectedFile = null;
 let selectedCsvFiles = [];
+let selectedRulesFile = null;
+let functionalParamCandidates = [];
+let functionalParamReviewed = false;
 let generatedJmxContent = null;
 let currentTab = 'dagTab';
 let llmProviderStatus = null;
@@ -19,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
     initDragAndDrop();
     initCsvDragAndDrop();
+    initFunctionalParameterization();
     initAiToggle();
     initAppAlert();
     loadLlmProviderStatus();
@@ -29,6 +33,17 @@ function initAppAlert() {
     closeBtn.addEventListener('click', () => {
         document.getElementById('appAlert').classList.add('hidden');
     });
+}
+
+function resetFunctionalParameterizationReview() {
+    functionalParamCandidates = [];
+    functionalParamReviewed = false;
+    const panel = document.getElementById('paramReviewPanel');
+    const list = document.getElementById('paramCandidateList');
+    const summary = document.getElementById('paramReviewSummary');
+    if (panel) panel.classList.add('hidden');
+    if (list) list.innerHTML = '';
+    if (summary) summary.textContent = 'No candidates analyzed';
 }
 
 function initAiToggle() {

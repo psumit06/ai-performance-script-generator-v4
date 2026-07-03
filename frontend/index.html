@@ -55,6 +55,32 @@
                     <div class="field-hint" id="csvHint">CSV files will be added as JMeter CSV Data Set Config elements</div>
                 </div>
 
+                <!-- Functional Parameterization -->
+                <div class="glass-card section-card">
+                    <h2 class="section-title"><i data-lucide="wand-sparkles"></i> Functional Parameterization</h2>
+                    <div class="form-group">
+                        <label class="toggle-row" for="functionalParamEnabled">
+                            <span><i data-lucide="braces"></i> Review JMeter function replacements</span>
+                            <input id="functionalParamEnabled" type="checkbox">
+                        </label>
+                    </div>
+                    <div class="rules-upload-group" id="rulesUploadGroup">
+                        <div class="rules-dropzone" id="rulesDropzone">
+                            <input type="file" id="rulesFileInput" accept=".json,application/json" style="display: none;">
+                            <i data-lucide="file-json" class="upload-icon"></i>
+                            <span class="dropzone-text" id="rulesDropzoneText">Optional <strong>replacement rules JSON</strong></span>
+                        </div>
+                        <div class="field-hint" id="functionalParamHint">When enabled, candidates are reviewed before generation.</div>
+                    </div>
+                    <div class="param-review hidden" id="paramReviewPanel">
+                        <div class="param-review-header">
+                            <span id="paramReviewSummary">No candidates analyzed</span>
+                            <button type="button" class="btn-link" id="selectHighConfidenceBtn">Select high confidence</button>
+                        </div>
+                        <div class="param-candidate-list" id="paramCandidateList"></div>
+                    </div>
+                </div>
+
                 <!-- Load Test Parameters -->
                 <div class="glass-card section-card">
                     <h2 class="section-title"><i data-lucide="sliders"></i> Execution Profile</h2>
