@@ -713,9 +713,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
     if (functionalParamEnabled) {
         const selectedIds = getSelectedParamCandidateIds();
-        if (selectedIds.length > 0) {
-            params.set('selected_parameterization_ids', JSON.stringify(selectedIds));
-        }
+        params.set('selected_parameterization_ids', JSON.stringify(selectedIds));
         if (selectedRulesFile) {
             formData.append('replacement_rules', selectedRulesFile);
         }
