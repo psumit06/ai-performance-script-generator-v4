@@ -42,4 +42,56 @@ Cost-wise, your sample runs on gpt-4o-mini are roughly fractions of a cent: arou
 4:18 PM
 
 
+You'd use the advanced rules format with value_regex to match the literal value. Here are the two options depending on your scenario:
 
+Option 1: Match in specific known fields
+{
+  "rules": [
+    {
+      "name": "HL7 timestamps",
+      "field_patterns": ["HL7Order", "timestamp", "orderDate"],
+      "value_regex": "\\b202501300935\\b",
+      "replacement": "${timeRep}",
+      "auto_apply": true
+    }
+  ]
+}
+field_patterns lists the JSON field names (or XML tag names) where the value appears. The match is case-insensitive substring, so "HL7Order" matches field path $...HL7Order....
+
+Option 2: Match anywhere in any field (use .*)
+Since field_matches does substring matching:
+
+{
+  "rules": [
+    {
+      "name": "Replace timestamp everywhere",
+      "field_patterns": ["."],
+      "value_regex": "\\b202501300935\\b",
+      "replacement": "${timeRep}",
+      "auto_apply": true
+    }
+  ]
+}
+"." is a substring of every field path (they all start with $), so this effectively scans all fields.
+
+If the value varies per request (e.g., always 12 digits starting with 20)
+Use a regex pattern instead of a literal:
+
+{
+  "rules": [
+    {
+      "name": "Dynamic timestamps",
+      "field_patterns": ["."],
+      "value_regex": "\\b20\\d{10}\\b",
+      "replacement": "${__time(yyyyMMddHHmm,)}",
+      "auto_apply": false
+    }
+  ]
+}
+Set auto_apply: false if you want to review each match before applying, or true to auto-apply.
+
+Key notes
+field_patterns is substring-matched against the field path (e.g., $.timestamp, $.data.HL7Order)
+value_regex is a Python regex matched against the field's string value
+auto_apply: true = pre-checked in the review panel and auto-applied on generate
+auto_apply: false = shown unchecked, you manually select which to apply
