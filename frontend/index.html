@@ -64,7 +64,7 @@
                             <input id="functionalParamEnabled" type="checkbox">
                         </label>
                     </div>
-                    <div class="rules-upload-group" id="rulesUploadGroup">
+                    <div class="rules-upload-group hidden" id="rulesUploadGroup">
                         <div class="rules-dropzone" id="rulesDropzone">
                             <input type="file" id="rulesFileInput" accept=".json,application/json" style="display: none;">
                             <i data-lucide="file-json" class="upload-icon"></i>
@@ -75,7 +75,26 @@
                     <div class="param-review hidden" id="paramReviewPanel">
                         <div class="param-review-header">
                             <span id="paramReviewSummary">No candidates analyzed</span>
-                            <button type="button" class="btn-link" id="selectHighConfidenceBtn">Select high confidence</button>
+                            <div class="param-review-actions">
+                                <button type="button" class="btn-link" id="selectHighConfidenceBtn">Select high confidence</button>
+                                <button type="button" class="btn-link" id="deselectAllBtn">Deselect all</button>
+                            </div>
+                        </div>
+                        <div class="param-filter-bar" id="paramFilterBar">
+                            <label class="param-filter-label">
+                                <input type="checkbox" id="paramSelectAll" checked> All
+                            </label>
+                            <select id="paramFilterSource" class="param-filter-select">
+                                <option value="all">All sources</option>
+                                <option value="rule">Rule</option>
+                                <option value="auto_detected">Auto-detected</option>
+                            </select>
+                            <select id="paramFilterConfidence" class="param-filter-select">
+                                <option value="all">All confidence</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
                         </div>
                         <div class="param-candidate-list" id="paramCandidateList"></div>
                     </div>

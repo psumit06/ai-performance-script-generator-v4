@@ -44,6 +44,285 @@ function resetFunctionalParameterizationReview() {
     if (panel) panel.classList.add('hidden');
     if (list) list.innerHTML = '';
     if (summary) summary.textContent = 'No candidates analyzed';
+    const filterSrc = document.getElementById('paramFilterSource');
+    const filterConf = document.getElementById('paramFilterConfidence');
+    if (filterSrc) filterSrc.value = 'all';
+    if (filterConf) filterConf.value = 'all';
+    const selectAll = document.getElementById('paramSelectAll');
+    if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
+}
+
+function initFunctionalParameterization() {
+    const toggle = document.getElementById('functionalParamEnabled');
+    const rulesDropzone = document.getElementById('rulesDropzone');
+    const rulesFileInput = document.getElementById('rulesFileInput');
+    const rulesUploadGroup = document.getElementById('rulesUploadGroup');
+    const selectHighConfBtn = document.getElementById('selectHighConfidenceBtn');
+    const deselectAllBtn = document.getElementById('deselectAllBtn');
+    const selectAllCb = document.getElementById('paramSelectAll');
+    const filterSource = document.getElementById('paramFilterSource');
+    const filterConfidence = document.getElementById('paramFilterConfidence');
+
+    rulesDropzone.addEventListener('click', () => rulesFileInput.click());
+    rulesDropzone.addEventListener('dragover', (e) => { e.preventDefault(); rulesDropzone.classList.add('dragover'); });
+    rulesDropzone.addEventListener('dragleave', () => rulesDropzone.classList.remove('dragover'));
+    rulesDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        rulesDropzone.classList.remove('dragover');
+        const file = Array.from(e.dataTransfer.files).find(f => f.name.endsWith('.json'));
+        if (file) handleRulesFileSelect(file);
+    });
+    rulesFileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleRulesFileSelect(e.target.files[0]);
+    });
+
+    toggle.addEventListener('change', () => {
+        if (toggle.checked) {
+            rulesUploadGroup.classList.remove('hidden');
+            if (selectedFile) analyzeParameterizationCandidates();
+        } else {
+            rulesUploadGroup.classList.add('hidden');
+            resetFunctionalParameterizationReview();
+            selectedRulesFile = null;
+            updateRulesDropzoneUI();
+        }
+    });
+
+    selectHighConfBtn.addEventListener('click', () => {
+        functionalParamCandidates.forEach(c => {
+            if (c.confidence === 'high') c.selected_by_default = true;
+        });
+        renderParamCandidates(getFilteredCandidates());
+        syncSelectAllCheckbox();
+    });
+
+    deselectAllBtn.addEventListener('click', () => {
+        functionalParamCandidates.forEach(c => { c.selected_by_default = false; });
+        renderParamCandidates(getFilteredCandidates());
+        syncSelectAllCheckbox();
+    });
+
+    selectAllCb.addEventListener('change', () => {
+        const checked = selectAllCb.checked;
+        getFilteredCandidates().forEach(c => { c.selected_by_default = checked; });
+        renderParamCandidates(getFilteredCandidates());
+    });
+
+    filterSource.addEventListener('change', () => {
+        renderParamCandidates(getFilteredCandidates());
+        syncSelectAllCheckbox();
+    });
+    filterConfidence.addEventListener('change', () => {
+        renderParamCandidates(getFilteredCandidates());
+        syncSelectAllCheckbox();
+    });
+}
+
+function getFilteredCandidates() {
+    const src = document.getElementById('paramFilterSource').value;
+    const conf = document.getElementById('paramFilterConfidence').value;
+    return functionalParamCandidates.filter(c => {
+        if (src !== 'all' && c.source !== src) return false;
+        if (conf !== 'all' && c.confidence !== conf) return false;
+        return true;
+    });
+}
+
+function syncSelectAllCheckbox() {
+    const filtered = getFilteredCandidates();
+    const selectAllCb = document.getElementById('paramSelectAll');
+    if (filtered.length === 0) {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = false;
+    } else {
+        const selectedCount = filtered.filter(c => c.selected_by_default).length;
+        selectAllCb.checked = selectedCount === filtered.length;
+        selectAllCb.indeterminate = selectedCount > 0 && selectedCount < filtered.length;
+    }
+}
+
+function handleRulesFileSelect(file) {
+    selectedRulesFile = file;
+    updateRulesDropzoneUI();
+    logTerminal(`[Functional Param] Loaded replacement rules: ${file.name} (${formatBytes(file.size)})`, 'system');
+    // Re-analyze if toggle is on and file is loaded
+    if (document.getElementById('functionalParamEnabled').checked && selectedFile) {
+        analyzeParameterizationCandidates();
+    }
+}
+
+function updateRulesDropzoneUI() {
+    const rulesDropzone = document.getElementById('rulesDropzone');
+    const rulesDropzoneText = document.getElementById('rulesDropzoneText');
+    if (selectedRulesFile) {
+        const maxLen = 22;
+        const displayName = selectedRulesFile.name.length > maxLen
+            ? selectedRulesFile.name.substring(0, maxLen) + '...'
+            : selectedRulesFile.name;
+        rulesDropzoneText.textContent = displayName;
+        rulesDropzone.classList.add('has-file');
+    } else {
+        rulesDropzoneText.innerHTML = 'Optional <strong>replacement rules JSON</strong>';
+        rulesDropzone.classList.remove('has-file');
+    }
+}
+
+async function analyzeParameterizationCandidates() {
+    if (!selectedFile) return;
+
+    const panel = document.getElementById('paramReviewPanel');
+    const summary = document.getElementById('paramReviewSummary');
+    const list = document.getElementById('paramCandidateList');
+
+    panel.classList.remove('hidden');
+    summary.textContent = 'Analyzing candidates...';
+    list.innerHTML = '<div class="param-loading">Scanning requests for parameterizable values...</div>';
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    selectedCsvFiles.forEach(csv => formData.append('csv_files', csv));
+    if (selectedRulesFile) {
+        formData.append('replacement_rules', selectedRulesFile);
+    }
+
+    try {
+        const response = await fetch('/api/analyze-parameterization', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            const detail = data.detail || {};
+            const message = detail.message || `Analysis failed with HTTP ${response.status}.`;
+            summary.textContent = 'Analysis failed';
+            list.innerHTML = `<div class="param-error">${message}</div>`;
+            logTerminal(`[Functional Param] ${message}`, 'error');
+            return;
+        }
+
+        const data = await response.json();
+        functionalParamCandidates = data.candidates || [];
+        const preSelectedIds = new Set(data.pre_selected_ids || []);
+
+        functionalParamCandidates.forEach(c => {
+            if (preSelectedIds.has(c.id)) {
+                c.selected_by_default = true;
+            }
+        });
+
+        functionalParamReviewed = true;
+
+        if (functionalParamCandidates.length === 0) {
+            summary.textContent = 'No candidates found';
+            list.innerHTML = '<div class="param-empty">No parameterizable values detected in the parsed requests.</div>';
+            logTerminal(`[Functional Param] No candidates detected.`, 'system');
+        } else {
+            const ruleCount = functionalParamCandidates.filter(c => c.source === 'rule').length;
+            const autoCount = functionalParamCandidates.filter(c => c.source === 'auto_detected').length;
+            const selectedCount = functionalParamCandidates.filter(c => c.selected_by_default).length;
+            summary.textContent = `${functionalParamCandidates.length} candidate(s) \u2014 ${ruleCount} from rules, ${autoCount} auto-detected \u2014 ${selectedCount} selected`;
+            renderParamCandidates(getFilteredCandidates());
+            syncSelectAllCheckbox();
+            logTerminal(`[Functional Param] Detected ${functionalParamCandidates.length} candidates (${ruleCount} rule-based, ${autoCount} auto-detected, ${selectedCount} pre-selected).`, 'success');
+        }
+    } catch (err) {
+        summary.textContent = 'Analysis failed';
+        list.innerHTML = `<div class="param-error">Network error: ${err.message}</div>`;
+        logTerminal(`[Functional Param] Network error: ${err.message}`, 'error');
+    }
+}
+
+function renderParamCandidates(candidates) {
+    const list = document.getElementById('paramCandidateList');
+    list.innerHTML = '';
+
+    if (candidates.length === 0) {
+        list.innerHTML = '<div class="param-empty">No candidates match the current filters.</div>';
+        return;
+    }
+
+    const table = document.createElement('div');
+    table.className = 'param-candidate-table';
+
+    const header = document.createElement('div');
+    header.className = 'param-table-header';
+    header.innerHTML = `
+        <span class="param-th param-th-check"></span>
+        <span class="param-th param-th-req">Request</span>
+        <span class="param-th param-th-loc">Location</span>
+        <span class="param-th param-th-field">Field/Path</span>
+        <span class="param-th param-th-current">Current Value</span>
+        <span class="param-th param-th-replace">Replacement</span>
+        <span class="param-th param-th-reason">Reason</span>
+        <span class="param-th param-th-conf">Confidence</span>
+        <span class="param-th param-th-src">Source</span>
+    `;
+    table.appendChild(header);
+
+    candidates.forEach((candidate, idx) => {
+        const row = document.createElement('div');
+        row.className = 'param-table-row';
+        if (candidate.selected_by_default) row.classList.add('selected');
+
+        const confClass = candidate.confidence === 'high' ? 'high'
+            : candidate.confidence === 'medium' ? 'medium'
+            : 'low';
+        const srcClass = candidate.source === 'rule' ? 'rule' : 'auto';
+        const checkedAttr = candidate.selected_by_default ? 'checked' : '';
+
+        row.innerHTML = `
+            <span class="param-td param-td-check">
+                <input type="checkbox" id="paramCandidate_${idx}" ${checkedAttr} data-candidate-id="${candidate.id}">
+            </span>
+            <span class="param-td param-td-req" title="${escapeHtml(candidate.request_name || '')}">${escapeHtml(truncateValue(candidate.request_name || 'Request ' + candidate.request_index, 24))}</span>
+            <span class="param-td param-td-loc"><span class="param-loc-badge">${candidate.location}</span></span>
+            <span class="param-td param-td-field" title="${escapeHtml(candidate.field_path)}">${escapeHtml(truncateValue(candidate.field_path, 30))}</span>
+            <span class="param-td param-td-current" title="${escapeHtml(candidate.original_value)}"><code>${escapeHtml(truncateValue(candidate.original_value, 36))}</code></span>
+            <span class="param-td param-td-replace"><code class="param-replacement">${escapeHtml(candidate.replacement)}</code></span>
+            <span class="param-td param-td-reason" title="${escapeHtml(candidate.reason)}">${escapeHtml(truncateValue(candidate.reason, 36))}</span>
+            <span class="param-td param-td-conf"><span class="param-badge ${confClass}">${candidate.confidence}</span></span>
+            <span class="param-td param-td-src"><span class="param-badge ${srcClass}">${candidate.source === 'rule' ? 'Rule' : 'Auto'}</span></span>
+        `;
+
+        const checkbox = row.querySelector('input[type="checkbox"]');
+        checkbox.addEventListener('change', () => {
+            candidate.selected_by_default = checkbox.checked;
+            row.classList.toggle('selected', checkbox.checked);
+            syncSelectAllCheckbox();
+            updateParamSummaryCount();
+        });
+
+        table.appendChild(row);
+    });
+
+    list.appendChild(table);
+}
+
+function updateParamSummaryCount() {
+    const summary = document.getElementById('paramReviewSummary');
+    const total = functionalParamCandidates.length;
+    const selected = functionalParamCandidates.filter(c => c.selected_by_default).length;
+    const ruleCount = functionalParamCandidates.filter(c => c.source === 'rule').length;
+    const autoCount = functionalParamCandidates.filter(c => c.source === 'auto_detected').length;
+    summary.textContent = `${total} candidate(s) \u2014 ${ruleCount} from rules, ${autoCount} auto-detected \u2014 ${selected} selected`;
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function truncateValue(val, maxLen) {
+    if (!val) return '';
+    return val.length > maxLen ? val.substring(0, maxLen) + '...' : val;
+}
+
+function getSelectedParamCandidateIds() {
+    return functionalParamCandidates
+        .filter(c => c.selected_by_default)
+        .map(c => c.id);
 }
 
 function initAiToggle() {
@@ -186,6 +465,11 @@ function handleFileSelect(file) {
     generatedJmxContent = null;
     
     logTerminal(`[System] Ingested file: ${file.name} (${formatBytes(file.size)}). Ready for analysis.`, 'system');
+
+    // Re-analyze functional parameterization if toggle is enabled
+    if (document.getElementById('functionalParamEnabled').checked) {
+        analyzeParameterizationCandidates();
+    }
 }
 
 // CSV File Drag and Drop
@@ -387,16 +671,30 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         formData.append('csv_files', csvFile);
     });
 
+    const functionalParamEnabled = document.getElementById('functionalParamEnabled').checked;
+
     const params = new URLSearchParams({
         users,
         ramp_up: rampUp,
         duration,
         think_time: thinkTime,
         pacing,
-        ai_enabled: String(aiEnabled)
+        ai_enabled: String(aiEnabled),
+        functional_parameterization: String(functionalParamEnabled)
     });
     if (aiEnabled && llmProvider) params.set('llm_provider', llmProvider);
     if (aiEnabled && llmModel) params.set('llm_model', llmModel);
+
+    if (functionalParamEnabled) {
+        const selectedIds = getSelectedParamCandidateIds();
+        if (selectedIds.length > 0) {
+            params.set('selected_parameterization_ids', JSON.stringify(selectedIds));
+        }
+        if (selectedRulesFile) {
+            formData.append('replacement_rules', selectedRulesFile);
+        }
+    }
+
     const queryUrl = `/api/generate-from-file?${params.toString()}`;
 
     try {
@@ -551,6 +849,12 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
             data.csv_files.forEach(csv => {
                 logTerminal(`   -> ${csv.filename}: ${csv.variables.length} variables, ${csv.row_count} rows`, 'success');
             });
+        }
+
+        // Log functional parameterization info
+        if (data.functional_parameterization && data.functional_parameterization.enabled) {
+            const fp = data.functional_parameterization;
+            logTerminal(`[Functional Param] Applied ${fp.applied_count} of ${fp.candidate_count} candidate(s).`, 'success');
         }
 
         // XML Validation status
