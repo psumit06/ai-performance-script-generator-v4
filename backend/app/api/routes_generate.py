@@ -224,7 +224,9 @@ async def generate_from_file(
         applied_parameterizations = []
         if functional_parameterization:
             rules_config = await read_rules_upload(replacement_rules)
-            selected_ids = parse_selected_candidate_ids(selected_parameterization_ids)
+            selected_ids = None
+            if selected_parameterization_ids is not None:
+                selected_ids = parse_selected_candidate_ids(selected_parameterization_ids)
             parameterization_candidates = analyze_functional_parameterization(all_endpoints, rules_config)
             applied_parameterizations = apply_functional_parameterization(
                 all_endpoints,
