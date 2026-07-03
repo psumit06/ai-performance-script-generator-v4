@@ -3,6 +3,7 @@ import json
 import re
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Set
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 
 UUID_RE = re.compile(
@@ -13,6 +14,11 @@ TIMESTAMP_12_RE = re.compile(r"\b(20\d{10})\b")
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 PHONE_RE = re.compile(r"\b[6-9]\d{9}\b")
 JMETER_EXPR_RE = re.compile(r"\$\{[^}]+\}")
+
+UUID_FIELD_TOKENS = ("id", "uuid", "guid", "interaction", "correlation", "trace", "key", "token", "session")
+TIMESTAMP_FIELD_TOKENS = ("timestamp", "datetime", "date", "time", "created", "updated", "modified", "ordered")
+EMAIL_FIELD_TOKENS = ("email", "mail")
+PHONE_FIELD_TOKENS = ("phone", "mobile", "tel", "contact")
 
 
 def load_rules_json(raw_rules: Optional[str]) -> Dict[str, Any]:
@@ -71,6 +77,11 @@ def value_matches(value: str, pattern: str) -> bool:
     if pattern == "timestamp_12":
         return bool(TIMESTAMP_12_RE.search(value))
     return False
+
+
+def _field_has_tokens(field_path: str, tokens: tuple) -> bool:
+    lower = (field_path or "").lower()
+    return any(token in lower for token in tokens)
 
 
 def add_candidate(candidates: List[Dict[str, Any]], candidate: Dict[str, Any]):
@@ -132,61 +143,76 @@ def detect_auto_candidates(endpoint: Dict[str, Any], text: str, location: str, f
         return candidates
 
     lower_field = (field_path or "").lower()
+    field_is_uuid = _field_has_tokens(field_path, UUID_FIELD_TOKENS)
+    field_is_ts = _field_has_tokens(field_path, TIMESTAMP_FIELD_TOKENS)
+    field_is_email = _field_has_tokens(field_path, EMAIL_FIELD_TOKENS)
+    field_is_phone = _field_has_tokens(field_path, PHONE_FIELD_TOKENS)
+
     for match in UUID_RE.finditer(text):
-        if any(token in lower_field for token in ("id", "uuid", "guid", "interaction", "correlation", "trace")):
-            candidate = candidate_base(endpoint, location, field_path, match.group(0))
+        if field_is_uuid:
+            conf = "high"
+            reason = "UUID-like value in ID/correlation field"
+        else:
+            conf = "medium"
+            reason = "UUID-like value detected"
+        candidate = candidate_base(endpoint, location, field_path, match.group(0))
+        candidate.update({
+            "replacement": "${__UUID()}",
+            "reason": reason,
+            "confidence": conf,
+            "source": "auto_detected",
+            "selected_by_default": False,
+            "auto_apply": False,
+        })
+        add_candidate(candidates, candidate)
+
+    for regex, replacement, reason in (
+        (TIMESTAMP_14_RE, "${__time(yyyyMMddHHmmss,)}", "14-digit timestamp-like value"),
+        (TIMESTAMP_12_RE, "${__time(yyyyMMddHHmm,)}", "12-digit timestamp-like value"),
+    ):
+        for match in regex.finditer(text):
+            if field_is_ts:
+                conf = "high"
+            else:
+                conf = "medium"
+            candidate = candidate_base(endpoint, location, field_path, match.group(1))
             candidate.update({
-                "replacement": "${__UUID()}",
-                "reason": "UUID-like value in ID/correlation field",
-                "confidence": "high",
+                "replacement": replacement,
+                "reason": reason,
+                "confidence": conf,
                 "source": "auto_detected",
                 "selected_by_default": False,
                 "auto_apply": False,
             })
             add_candidate(candidates, candidate)
 
-    if any(token in lower_field for token in ("timestamp", "datetime", "date", "time")):
-        for regex, replacement, reason in (
-            (TIMESTAMP_14_RE, "${__time(yyyyMMddHHmmss,)}", "14-digit timestamp-like value"),
-            (TIMESTAMP_12_RE, "${__time(yyyyMMddHHmm,)}", "12-digit timestamp-like value"),
-        ):
-            for match in regex.finditer(text):
-                candidate = candidate_base(endpoint, location, field_path, match.group(1))
-                candidate.update({
-                    "replacement": replacement,
-                    "reason": reason,
-                    "confidence": "medium",
-                    "source": "auto_detected",
-                    "selected_by_default": False,
-                    "auto_apply": False,
-                })
-                add_candidate(candidates, candidate)
+    for match in EMAIL_RE.finditer(text):
+        conf = "high" if field_is_email else "medium"
+        reason = "Email-like value in email field" if field_is_email else "Email-like value detected"
+        candidate = candidate_base(endpoint, location, field_path, match.group(0))
+        candidate.update({
+            "replacement": "user_${__threadNum}_${__time()}@test.com",
+            "reason": reason,
+            "confidence": conf,
+            "source": "auto_detected",
+            "selected_by_default": False,
+            "auto_apply": False,
+        })
+        add_candidate(candidates, candidate)
 
-    if "email" in lower_field:
-        for match in EMAIL_RE.finditer(text):
-            candidate = candidate_base(endpoint, location, field_path, match.group(0))
-            candidate.update({
-                "replacement": "user_${__threadNum}_${__time()}@test.com",
-                "reason": "Email-like value in email field",
-                "confidence": "medium",
-                "source": "auto_detected",
-                "selected_by_default": False,
-                "auto_apply": False,
-            })
-            add_candidate(candidates, candidate)
-
-    if any(token in lower_field for token in ("phone", "mobile")):
-        for match in PHONE_RE.finditer(text):
-            candidate = candidate_base(endpoint, location, field_path, match.group(0))
-            candidate.update({
-                "replacement": "${__Random(7000000000,9999999999,)}",
-                "reason": "Phone-like value in phone/mobile field",
-                "confidence": "medium",
-                "source": "auto_detected",
-                "selected_by_default": False,
-                "auto_apply": False,
-            })
-            add_candidate(candidates, candidate)
+    for match in PHONE_RE.finditer(text):
+        conf = "high" if field_is_phone else "medium"
+        reason = "Phone-like value in phone/mobile field" if field_is_phone else "Phone-like value detected"
+        candidate = candidate_base(endpoint, location, field_path, match.group(0))
+        candidate.update({
+            "replacement": "${__Random(7000000000,9999999999,)}",
+            "reason": reason,
+            "confidence": conf,
+            "source": "auto_detected",
+            "selected_by_default": False,
+            "auto_apply": False,
+        })
+        add_candidate(candidates, candidate)
 
     return candidates
 
@@ -220,13 +246,37 @@ def inspect_raw_body(endpoint: Dict[str, Any], rules: List[Dict[str, Any]]):
             pass
 
     xml_text_pattern = re.compile(r"<([A-Za-z_][\w:.-]*)\b[^>]*>([^<]+)</\1>")
-    for match in xml_text_pattern.finditer(raw_body):
-        field_path = match.group(1)
-        value = match.group(2).strip()
-        candidates.extend(detect_rule_candidates(endpoint, value, "raw_body", field_path, rules))
-        candidates.extend(detect_auto_candidates(endpoint, value, "raw_body", field_path))
+    xml_matches = list(xml_text_pattern.finditer(raw_body))
+    if xml_matches:
+        for match in xml_matches:
+            field_path = match.group(1)
+            value = match.group(2).strip()
+            candidates.extend(detect_rule_candidates(endpoint, value, "raw_body", field_path, rules))
+            candidates.extend(detect_auto_candidates(endpoint, value, "raw_body", field_path))
+    else:
+        candidates.extend(detect_rule_candidates(endpoint, raw_body, "raw_body", "raw_body", rules))
+        candidates.extend(detect_auto_candidates(endpoint, raw_body, "raw_body", "raw_body"))
+    return candidates
 
-    candidates.extend(detect_rule_candidates(endpoint, raw_body, "raw_body", "raw_body", rules))
+
+def inspect_full_url(endpoint: Dict[str, Any], rules: List[Dict[str, Any]]):
+    candidates = []
+    full_url = endpoint.get("full_url") or ""
+    if not full_url:
+        return candidates
+    try:
+        parsed = urlparse(full_url)
+        if parsed.query:
+            params = parse_qs(parsed.query, keep_blank_values=True)
+            for key, values in params.items():
+                for val in values:
+                    if has_jmeter_expression(val):
+                        continue
+                    field_path = f"query.{key}"
+                    candidates.extend(detect_rule_candidates(endpoint, val, "full_url", field_path, rules))
+                    candidates.extend(detect_auto_candidates(endpoint, val, "full_url", field_path))
+    except Exception:
+        pass
     return candidates
 
 
@@ -235,6 +285,7 @@ def analyze_functional_parameterization(endpoints: List[Dict[str, Any]], rules_c
     candidates = []
     for endpoint in endpoints or []:
         candidates.extend(inspect_raw_body(endpoint, rules))
+        candidates.extend(inspect_full_url(endpoint, rules))
         for location in ("query_params", "headers", "form_data", "urlencoded", "multipart_files"):
             for item in endpoint.get(location, []) or []:
                 field_path = item.get("key") or location
@@ -266,6 +317,12 @@ def apply_candidate_to_endpoint(endpoint: Dict[str, Any], candidate: Dict[str, A
 
     if location == "raw_body":
         endpoint["raw_body"] = replace_outside_jmeter_expressions(endpoint.get("raw_body", ""), original, replacement)
+        return
+
+    if location == "full_url":
+        full_url = endpoint.get("full_url", "")
+        if original in full_url:
+            endpoint["full_url"] = full_url.replace(original, replacement)
         return
 
     for item in endpoint.get(location, []) or []:
