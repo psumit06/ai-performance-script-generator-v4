@@ -219,7 +219,6 @@ async def generate_from_file(
         # =====================================
         parsed_data = parse_api_spec(raw_content)
         all_endpoints = parsed_data["endpoints"]
-        parameterize_endpoints_from_csv(all_endpoints, csv_data_list)
         parameterization_candidates = []
         applied_parameterizations = []
         if functional_parameterization:
@@ -228,6 +227,7 @@ async def generate_from_file(
             if selected_parameterization_ids is not None:
                 selected_ids = parse_selected_candidate_ids(selected_parameterization_ids)
             parameterization_candidates = analyze_functional_parameterization(all_endpoints, rules_config)
+            parameterize_endpoints_from_csv(all_endpoints, csv_data_list)
             applied_parameterizations = apply_functional_parameterization(
                 all_endpoints,
                 parameterization_candidates,
@@ -235,6 +235,8 @@ async def generate_from_file(
                 include_auto_apply=True
             )
             print(f"Functional Parameterization: Applied {len(applied_parameterizations)} of {len(parameterization_candidates)} candidates.")
+        else:
+            parameterize_endpoints_from_csv(all_endpoints, csv_data_list)
         print(f"Ingested {len(all_endpoints)} endpoints.")
 
         # =====================================
