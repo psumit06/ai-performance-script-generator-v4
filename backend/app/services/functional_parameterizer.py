@@ -10,6 +10,13 @@ UUID_RE = re.compile(
     r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
 )
 TIMESTAMP_RE = re.compile(r"\b(20\d{8,12})\b")
+TIMESTAMP_BY_LEN = {
+    10: re.compile(r"\b(20\d{8})\b"),
+    11: re.compile(r"\b(20\d{9})\b"),
+    12: re.compile(r"\b(20\d{10})\b"),
+    13: re.compile(r"\b(20\d{11})\b"),
+    14: re.compile(r"\b(20\d{12})\b"),
+}
 EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 PHONE_RE = re.compile(r"\b[6-9]\d{9}\b")
 JMETER_EXPR_RE = re.compile(r"\$\{[^}]+\}")
@@ -122,7 +129,18 @@ def detect_rule_candidates(endpoint: Dict[str, Any], text: str, location: str, f
             matches = [match.group(0) for match in re.finditer(value_regex, text_str)]
         elif value_pattern and value_matches(text_str, value_pattern):
             has_value_filter = True
-            match = re.search(UUID_RE if value_pattern == "uuid" else re.escape(text_str), text_str)
+            if value_pattern == "uuid":
+                match = re.search(UUID_RE, text_str)
+            elif value_pattern == "email":
+                match = re.search(EMAIL_RE, text_str)
+            elif value_pattern == "phone":
+                match = re.search(PHONE_RE, text_str)
+            elif value_pattern.startswith("timestamp"):
+                ts_len = int(value_pattern.split("_")[-1]) if value_pattern.split("_")[-1].isdigit() else None
+                ts_re = TIMESTAMP_BY_LEN.get(ts_len, TIMESTAMP_RE)
+                match = re.search(ts_re, text_str)
+            else:
+                match = None
             matches = [match.group(0)] if match else [text_str]
         elif not value_pattern:
             matches = [text_str]
@@ -369,11 +387,11 @@ def apply_functional_parameterization(
     applied = []
     by_index = {endpoint.get("source_index", index): endpoint for index, endpoint in enumerate(endpoints or [])}
     
-    # Avoid duplicate/conflicting replacements on the same parameter path
+    # Avoid duplicate/conflicting replacements on the same parameter path + value
     applied_targets = set()
     
     for candidate in candidates or []:
-        target_key = (candidate.get("request_index"), candidate.get("location"), candidate.get("field_path"))
+        target_key = (candidate.get("request_index"), candidate.get("location"), candidate.get("field_path"), candidate.get("original_value"))
         if target_key in applied_targets:
             continue
 
