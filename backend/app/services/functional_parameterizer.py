@@ -47,8 +47,6 @@ def candidate_id(candidate: Dict[str, Any]) -> str:
         "location",
         "field_path",
         "original_value",
-        "replacement",
-        "source",
     ))
     return "param_" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:10]
 
@@ -298,9 +296,15 @@ def analyze_functional_parameterization(endpoints: List[Dict[str, Any]], rules_c
                 candidates.extend(detect_rule_candidates(endpoint, value, location, field_path, rules))
                 candidates.extend(detect_auto_candidates(endpoint, value, location, field_path))
     
-    # Sort candidates: rules first (second phase), auto_detected second (third phase)
     rules_list = [c for c in candidates if c.get("source") == "rule"]
     auto_list = [c for c in candidates if c.get("source") == "auto_detected"]
+
+    rule_keys = {(c.get("request_index"), c.get("location"), c.get("field_path")) for c in rules_list}
+    auto_list = [
+        c for c in auto_list
+        if (c.get("request_index"), c.get("location"), c.get("field_path")) not in rule_keys
+    ]
+
     return rules_list + auto_list
 
 
