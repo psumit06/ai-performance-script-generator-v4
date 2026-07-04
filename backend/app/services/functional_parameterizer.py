@@ -116,9 +116,12 @@ def detect_rule_candidates(endpoint: Dict[str, Any], text: str, location: str, f
             continue
 
         matches = []
+        has_value_filter = False
         if value_regex:
+            has_value_filter = True
             matches = [match.group(0) for match in re.finditer(value_regex, text_str)]
         elif value_pattern and value_matches(text_str, value_pattern):
+            has_value_filter = True
             match = re.search(UUID_RE if value_pattern == "uuid" else re.escape(text_str), text_str)
             matches = [match.group(0)] if match else [text_str]
         elif not value_pattern:
@@ -131,6 +134,7 @@ def detect_rule_candidates(endpoint: Dict[str, Any], text: str, location: str, f
                 "reason": rule.get("reason") or f"Matched replacement rule: {rule.get('name', field_path)}",
                 "confidence": rule.get("confidence", "high"),
                 "source": "rule",
+                "has_value_filter": has_value_filter,
                 "selected_by_default": bool(rule.get("auto_apply", True)),
                 "auto_apply": bool(rule.get("auto_apply", True)),
             })
@@ -302,10 +306,19 @@ def analyze_functional_parameterization(endpoints: List[Dict[str, Any]], rules_c
     rules_list = [c for c in candidates if c.get("source") == "rule"]
     auto_list = [c for c in candidates if c.get("source") == "auto_detected"]
 
-    rule_keys = {(c.get("request_index"), c.get("location"), c.get("field_path")) for c in rules_list}
+    rule_fulltext_keys = set()
+    rule_value_keys = set()
+    for c in rules_list:
+        key = (c.get("request_index"), c.get("location"), c.get("field_path"))
+        if c.get("has_value_filter"):
+            rule_value_keys.add((*key, c.get("original_value")))
+        else:
+            rule_fulltext_keys.add(key)
+
     auto_list = [
         c for c in auto_list
-        if (c.get("request_index"), c.get("location"), c.get("field_path")) not in rule_keys
+        if (c.get("request_index"), c.get("location"), c.get("field_path")) not in rule_fulltext_keys
+        and (c.get("request_index"), c.get("location"), c.get("field_path"), c.get("original_value")) not in rule_value_keys
     ]
 
     return rules_list + auto_list
