@@ -137,8 +137,8 @@ async def analyze_parameterization(
 
     parsed_data = parse_api_spec(raw_content)
     all_endpoints = parsed_data["endpoints"]
-    parameterize_endpoints_from_csv(all_endpoints, csv_data_list)
     candidates = analyze_functional_parameterization(all_endpoints, rules_config)
+    parameterize_endpoints_from_csv(all_endpoints, csv_data_list)
 
     pre_selected_ids = [c["id"] for c in candidates if c.get("selected_by_default")]
 
