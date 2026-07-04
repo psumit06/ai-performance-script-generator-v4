@@ -63,16 +63,19 @@ def field_matches(field_path: str, patterns: List[str]) -> bool:
 def value_matches(value: str, pattern: str) -> bool:
     if not pattern:
         return True
+    if value is None or value == "":
+        return False
+    text = str(value)
     if pattern == "uuid":
-        return bool(UUID_RE.search(value))
+        return bool(UUID_RE.search(text))
     if pattern == "email":
-        return bool(EMAIL_RE.search(value))
+        return bool(EMAIL_RE.search(text))
     if pattern == "phone":
-        return bool(PHONE_RE.search(value))
+        return bool(PHONE_RE.search(text))
     if pattern == "timestamp_14":
-        return bool(TIMESTAMP_RE.search(value))
+        return bool(TIMESTAMP_RE.search(text))
     if pattern == "timestamp_12":
-        return bool(TIMESTAMP_RE.search(value))
+        return bool(TIMESTAMP_RE.search(text))
     return False
 
 
