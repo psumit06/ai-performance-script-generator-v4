@@ -33,6 +33,22 @@ def load_rules_json(raw_rules: Optional[str]) -> Dict[str, Any]:
     data = json.loads(raw_rules)
     if isinstance(data, dict) and "rules" in data:
         return data
+    if isinstance(data, dict) and "simple" in data:
+        simple = data["simple"]
+        if not isinstance(simple, dict):
+            raise ValueError("The 'simple' value must be a JSON object.")
+        return {
+            "rules": [
+                {
+                    "name": key,
+                    "field_patterns": [""],
+                    "value_regex": re.escape(key),
+                    "replacement": value,
+                    "auto_apply": True,
+                }
+                for key, value in simple.items()
+            ]
+        }
     if isinstance(data, dict):
         return {
             "rules": [
