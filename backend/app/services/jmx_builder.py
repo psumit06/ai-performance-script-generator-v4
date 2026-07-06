@@ -379,8 +379,7 @@ elementType="Header">
     xml += "</hashTree>\n"
     return xml
 
-def render_flow_control_action(name, delay_ms):
-    delay_ms = max(0, int(delay_ms))
+def render_flow_control_action(name, delay_variable):
     safe_name = escape_xml(name)
     return f"""
 <TestAction guiclass="TestActionGui"
@@ -390,17 +389,17 @@ enabled="true">
 
 <intProp name="ActionProcessor.action">1</intProp>
 <intProp name="ActionProcessor.target">0</intProp>
-<stringProp name="ActionProcessor.duration">{delay_ms}</stringProp>
+<stringProp name="ActionProcessor.duration">${{{delay_variable}}}</stringProp>
 
 </TestAction>
 <hashTree/>
 """
 
-def render_think_time_action(delay_ms):
-    return render_flow_control_action("Think Time", delay_ms)
+def render_think_time_action():
+    return render_flow_control_action("Think Time", "ThinkTime")
 
-def render_pacing_action(delay_ms):
-    return render_flow_control_action("Pacing", delay_ms)
+def render_pacing_action():
+    return render_flow_control_action("Pacing", "Pacing")
 
 def render_result_collector(name, guiclass):
     safe_name = escape_xml(name)
@@ -468,6 +467,13 @@ def build_jmx(test_plan):
     exclusion_regex = test_plan.get("exclusion_regex", "")
     csv_files = test_plan.get("csv_files", [])
 
+    first_think_time = 0
+    for tx in flow:
+        tt = int(tx.get("think_time", 0) or 0)
+        if tt > 300:
+            first_think_time = tt
+            break
+
     xml = """<?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2"
 properties="5.0"
@@ -485,7 +491,7 @@ jmeter="5.6.3">
     xml += "<hashTree>"
 
     # 2.5. User Defined Variables
-    xml += build_user_defined_variables()
+    xml += build_user_defined_variables(think_time_ms=first_think_time, pacing_ms=pacing)
     xml += "<hashTree/>"
 
     # 3. Cookie Manager
@@ -569,11 +575,11 @@ enabled="true">
         # RENDER THINK TIME AS FLOW CONTROL ACTION (skip for last transaction)
         is_last_tx = tx_index == len(flow) - 1
         if not is_last_tx and think_time > 300:
-            xml += render_think_time_action(think_time)
+            xml += render_think_time_action()
 
         # RENDER PACING AT THE END OF THE LAST TRANSACTION CONTROLLER
         if is_last_tx and pacing > 300:
-            xml += render_pacing_action(pacing)
+            xml += render_pacing_action()
 
         # Close Transaction Controller Hash Tree
         xml += "</hashTree>\n"

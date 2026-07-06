@@ -150,7 +150,6 @@ enabled="true">
 
 UDV_VARIABLES = [
     ("Datapath", "${__P(datadir)}"),
-    ("ThinkTime", "${__P(thinktime)}"),
     ("TEST_ID", "${__time(yyyy-MM-dd'T'hh:mm:ss)}"),
     ("Duration", "${__P(duration)}"),
     ("starttime", "${__time(,)}"),
@@ -160,7 +159,15 @@ UDV_VARIABLES = [
 ]
 
 
-def build_user_defined_variables():
+def build_user_defined_variables(think_time_ms=0, pacing_ms=0):
+    extra = []
+    if think_time_ms:
+        extra.append(("ThinkTime", str(think_time_ms)))
+    if pacing_ms:
+        extra.append(("Pacing", str(pacing_ms)))
+
+    all_vars = UDV_VARIABLES + extra
+
     xml = """
 <Arguments guiclass="ArgumentsPanel"
 testclass="Arguments"
@@ -169,7 +176,7 @@ enabled="true">
 
 <collectionProp name="Arguments.arguments">
 """
-    for var_name, var_value in UDV_VARIABLES:
+    for var_name, var_value in all_vars:
         xml += (
             f'<elementProp name="{var_name}" elementType="Argument">\n'
             f'{string_prop("Argument.name", var_name)}'
