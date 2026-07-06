@@ -5,6 +5,28 @@ from app.services.xml_helpers import (
 )
 
 
+def _arg_element(name, value):
+    return (
+        f'<elementProp name="{name}" elementType="Argument">\n'
+        f'{string_prop("Argument.name", name)}'
+        f'{string_prop("Argument.value", value)}'
+        f'{string_prop("Argument.metadata", "=")}'
+        f'</elementProp>\n'
+    )
+
+
+UDV_VARIABLES = [
+    ("Datapath", "${__P(datadir)}"),
+    ("ThinkTime", "${__P(thinktime)}"),
+    ("TEST_ID", "${__time(yyyy-MM-dd'T'hh:mm:ss)}"),
+    ("Duration", "${__P(duration)}"),
+    ("starttime", "${__time(,)}"),
+    ("RelVsn", "${__P(Release)}"),
+    ("hold", "${__P(delayaftertest)}"),
+    ("TestFolderName", "${__P(DateTime,)}"),
+]
+
+
 def build_test_plan():
 
     xml = ""
@@ -31,11 +53,12 @@ enabled="true">
         False
     )
 
-    xml += """
-<elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
-<collectionProp name="Arguments.arguments"/>
-</elementProp>
-"""
+    xml += '<elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">\n'
+    xml += '<collectionProp name="Arguments.arguments">\n'
+    for var_name, var_value in UDV_VARIABLES:
+        xml += _arg_element(var_name, var_value)
+    xml += '</collectionProp>\n'
+    xml += '</elementProp>\n'
 
     xml += bool_prop(
         "TestPlan.tearDown_on_shutdown",
