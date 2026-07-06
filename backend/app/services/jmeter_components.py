@@ -162,14 +162,10 @@ UDV_VARIABLES = [
 
 def build_user_defined_variables():
     xml = """
-<ConfigTestElement guiclass="ArgumentsPanel"
-testclass="ConfigTestElement"
+<Arguments guiclass="ArgumentsPanel"
+testclass="Arguments"
 testname="User Defined Variables"
 enabled="true">
-
-<elementProp name="arguments" elementType="Arguments"
-guiclass="ArgumentsPanel" testclass="Arguments"
-testname="User Defined Variables" enabled="true">
 
 <collectionProp name="Arguments.arguments">
 """
@@ -183,9 +179,7 @@ testname="User Defined Variables" enabled="true">
         )
     xml += """</collectionProp>
 
-</elementProp>
-
-</ConfigTestElement>
+</Arguments>
 """
     return xml
 
