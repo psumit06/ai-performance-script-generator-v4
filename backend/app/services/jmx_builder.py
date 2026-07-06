@@ -4,6 +4,7 @@ from app.services.jmeter_components import (
     build_test_plan,
     build_thread_group,
     build_cookie_manager,
+    build_user_defined_variables,
     build_transaction_controller,
     build_csv_dataset
 )
@@ -482,6 +483,10 @@ jmeter="5.6.3">
     # 2. Thread Group node
     xml += build_thread_group(users, ramp_up, duration, loops=loops, scheduler=scheduler)
     xml += "<hashTree>"
+
+    # 2.5. User Defined Variables
+    xml += build_user_defined_variables()
+    xml += "<hashTree/>"
 
     # 3. Cookie Manager
     xml += build_cookie_manager()

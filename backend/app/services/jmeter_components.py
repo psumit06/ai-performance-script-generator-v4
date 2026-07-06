@@ -53,12 +53,11 @@ enabled="true">
         False
     )
 
-    xml += '<elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">\n'
-    xml += '<collectionProp name="Arguments.arguments">\n'
-    for var_name, var_value in UDV_VARIABLES:
-        xml += _arg_element(var_name, var_value)
-    xml += '</collectionProp>\n'
-    xml += '</elementProp>\n'
+    xml += """
+<elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+<collectionProp name="Arguments.arguments"/>
+</elementProp>
+"""
 
     xml += bool_prop(
         "TestPlan.tearDown_on_shutdown",
@@ -147,6 +146,48 @@ enabled="true">
 
 </CookieManager>
 """
+
+
+UDV_VARIABLES = [
+    ("Datapath", "${__P(datadir)}"),
+    ("ThinkTime", "${__P(thinktime)}"),
+    ("TEST_ID", "${__time(yyyy-MM-dd'T'hh:mm:ss)}"),
+    ("Duration", "${__P(duration)}"),
+    ("starttime", "${__time(,)}"),
+    ("RelVsn", "${__P(Release)}"),
+    ("hold", "${__P(delayaftertest)}"),
+    ("TestFolderName", "${__P(DateTime,)}"),
+]
+
+
+def build_user_defined_variables():
+    xml = """
+<ConfigTestElement guiclass="ArgumentsPanel"
+testclass="ConfigTestElement"
+testname="User Defined Variables"
+enabled="true">
+
+<elementProp name="arguments" elementType="Arguments"
+guiclass="ArgumentsPanel" testclass="Arguments"
+testname="User Defined Variables" enabled="true">
+
+<collectionProp name="Arguments.arguments">
+"""
+    for var_name, var_value in UDV_VARIABLES:
+        xml += (
+            f'<elementProp name="{var_name}" elementType="Argument">\n'
+            f'{string_prop("Argument.name", var_name)}'
+            f'{string_prop("Argument.value", var_value)}'
+            f'{string_prop("Argument.metadata", "=")}'
+            f'</elementProp>\n'
+        )
+    xml += """</collectionProp>
+
+</elementProp>
+
+</ConfigTestElement>
+"""
+    return xml
 
 
 def build_csv_dataset(filename: str, variable_names: List[str], delimiter: str = ","):
