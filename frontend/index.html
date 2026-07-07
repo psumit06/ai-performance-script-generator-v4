@@ -100,6 +100,57 @@
                     </div>
                 </div>
 
+                <!-- Groovy Setup Script -->
+                <div class="glass-card section-card" id="groovySection">
+                    <h2 class="section-title"><i data-lucide="code"></i> Groovy Setup Script</h2>
+                    <div class="form-group">
+                        <label class="toggle-row" for="groovyEnabled">
+                            <span><i data-lucide="file-code"></i> Enable JSR223 Groovy Script</span>
+                            <input id="groovyEnabled" type="checkbox">
+                        </label>
+                    </div>
+                    <div class="groovy-config hidden" id="groovyConfig">
+                        <div class="form-group">
+                            <label for="groovyScript"><i data-lucide="terminal"></i> Script</label>
+                            <textarea id="groovyScript" class="textarea-control" rows="6" placeholder='vars.put(&quot;startTime&quot;, System.currentTimeMillis().toString())'></textarea>
+                        </div>
+                        <div class="groovy-dropzone" id="groovyDropzone">
+                            <input type="file" id="groovyFileInput" accept=".groovy,.json,.txt" style="display: none;">
+                            <i data-lucide="upload" class="upload-icon"></i>
+                            <span class="dropzone-text">Or drop a <strong>.groovy</strong> / <strong>.json</strong> file</span>
+                        </div>
+                        <div class="groovy-file-name hidden" id="groovyFileName"></div>
+                        <div class="form-group">
+                            <label><i data-lucide="layers"></i> Element Type</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="groovyElementType" value="sampler" checked> JSR223 Sampler
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="groovyElementType" value="pre_processor"> JSR223 Pre-Processor
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="groovyElementType" value="post_processor"> JSR223 Post-Processor
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="groovyLocation"><i data-lucide="map-pin"></i> Location</label>
+                            <select id="groovyLocation" class="select-control">
+                                <option value="before_first">Before First Transaction</option>
+                                <option value="after_last">After Last Transaction</option>
+                            </select>
+                        </div>
+                        <div class="form-group hidden" id="groovySpecificSamplersGroup">
+                            <label><i data-lucide="list-checks"></i> Target Sampler(s)</label>
+                            <div class="tag-input-wrapper" id="groovySamplerTags">
+                                <input type="text" id="groovySamplerInput" class="text-control" placeholder="Type sampler name and press Enter">
+                            </div>
+                            <div class="field-hint">Enter the exact sampler name(s) from your test plan</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Load Test Parameters -->
                 <div class="glass-card section-card">
                     <h2 class="section-title"><i data-lucide="sliders"></i> Execution Profile</h2>

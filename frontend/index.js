@@ -2,6 +2,8 @@
 let selectedFile = null;
 let selectedCsvFiles = [];
 let selectedRulesFile = null;
+let selectedGroovyFile = null;
+let groovySamplerTags = [];
 let functionalParamCandidates = [];
 let functionalParamReviewed = false;
 let generatedJmxContent = null;
@@ -23,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDragAndDrop();
     initCsvDragAndDrop();
     initFunctionalParameterization();
+    initGroovySetup();
     initAiToggle();
     initAppAlert();
     loadLlmProviderStatus();
@@ -176,6 +179,150 @@ function updateRulesDropzoneUI() {
         rulesDropzoneText.innerHTML = 'Optional <strong>replacement rules JSON</strong>';
         rulesDropzone.classList.remove('has-file');
     }
+}
+
+function initGroovySetup() {
+    const toggle = document.getElementById('groovyEnabled');
+    const config = document.getElementById('groovyConfig');
+    const dropzone = document.getElementById('groovyDropzone');
+    const fileInput = document.getElementById('groovyFileInput');
+    const fileName = document.getElementById('groovyFileName');
+    const elementTypeRadios = document.querySelectorAll('input[name="groovyElementType"]');
+    const locationSelect = document.getElementById('groovyLocation');
+    const specificGroup = document.getElementById('groovySpecificSamplersGroup');
+    const samplerInput = document.getElementById('groovySamplerInput');
+    const tagsContainer = document.getElementById('groovySamplerTags');
+
+    const samplerOptions = [
+        { value: 'before_first', label: 'Before First Transaction' },
+        { value: 'after_last', label: 'After Last Transaction' },
+    ];
+    const prePostOptions = [
+        { value: 'all_samplers', label: 'All Samplers' },
+        { value: 'specific_samplers', label: 'Specific Sampler(s)' },
+    ];
+
+    function getSelectedElementType() {
+        const checked = document.querySelector('input[name="groovyElementType"]:checked');
+        return checked ? checked.value : 'sampler';
+    }
+
+    function updateLocationOptions() {
+        const type = getSelectedElementType();
+        const opts = type === 'sampler' ? samplerOptions : prePostOptions;
+        locationSelect.innerHTML = '';
+        opts.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.label;
+            locationSelect.appendChild(opt);
+        });
+        updateSpecificSamplersVisibility();
+    }
+
+    function updateSpecificSamplersVisibility() {
+        const type = getSelectedElementType();
+        const loc = locationSelect.value;
+        if (type !== 'sampler' && loc === 'specific_samplers') {
+            specificGroup.classList.remove('hidden');
+        } else {
+            specificGroup.classList.add('hidden');
+        }
+    }
+
+    function renderSamplerTags() {
+        const existingTags = tagsContainer.querySelectorAll('.tag');
+        existingTags.forEach(t => t.remove());
+        groovySamplerTags.forEach((name, i) => {
+            const tag = document.createElement('span');
+            tag.className = 'tag';
+            tag.innerHTML = `${escapeHtml(name)} <span class="tag-remove" data-index="${i}">&times;</span>`;
+            tagsContainer.insertBefore(tag, samplerInput);
+        });
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    toggle.addEventListener('change', () => {
+        if (toggle.checked) {
+            config.classList.remove('hidden');
+            updateLocationOptions();
+        } else {
+            config.classList.add('hidden');
+        }
+    });
+
+    elementTypeRadios.forEach(radio => {
+        radio.addEventListener('change', updateLocationOptions);
+    });
+
+    locationSelect.addEventListener('change', updateSpecificSamplersVisibility);
+
+    samplerInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const val = samplerInput.value.trim().replace(/,$/, '');
+            if (val && !groovySamplerTags.includes(val)) {
+                groovySamplerTags.push(val);
+                renderSamplerTags();
+            }
+            samplerInput.value = '';
+        } else if (e.key === 'Backspace' && !samplerInput.value && groovySamplerTags.length > 0) {
+            groovySamplerTags.pop();
+            renderSamplerTags();
+        }
+    });
+
+    tagsContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tag-remove')) {
+            const idx = parseInt(e.target.dataset.index);
+            groovySamplerTags.splice(idx, 1);
+            renderSamplerTags();
+        }
+    });
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        const file = Array.from(e.dataTransfer.files)[0];
+        if (file) handleGroovyFileSelect(file);
+    });
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleGroovyFileSelect(e.target.files[0]);
+    });
+}
+
+function handleGroovyFileSelect(file) {
+    selectedGroovyFile = file;
+    const fileName = document.getElementById('groovyFileName');
+    fileName.classList.remove('hidden');
+    fileName.textContent = file.name;
+    logTerminal(`[Groovy] Loaded script file: ${file.name} (${formatBytes(file.size)})`, 'system');
+}
+
+function getGroovyConfig() {
+    const enabled = document.getElementById('groovyEnabled').checked;
+    if (!enabled) return null;
+
+    const script = document.getElementById('groovyScript').value.trim();
+    const elementType = document.querySelector('input[name="groovyElementType"]:checked')?.value || 'sampler';
+    const location = document.getElementById('groovyLocation').value;
+    const specificSamplers = groovySamplerTags.slice();
+
+    if (!script && !selectedGroovyFile) return null;
+
+    const config = { element_type: elementType, location };
+    if (specificSamplers.length > 0) {
+        config.specific_samplers = specificSamplers;
+    }
+    return config;
 }
 
 async function analyzeParameterizationCandidates() {
@@ -716,6 +863,14 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         params.set('selected_parameterization_ids', JSON.stringify(selectedIds));
         if (selectedRulesFile) {
             formData.append('replacement_rules', selectedRulesFile);
+        }
+    }
+
+    const groovyConfig = getGroovyConfig();
+    if (groovyConfig) {
+        params.set('groovy_config', JSON.stringify(groovyConfig));
+        if (selectedGroovyFile) {
+            formData.append('groovy_setup_file', selectedGroovyFile);
         }
     }
 
