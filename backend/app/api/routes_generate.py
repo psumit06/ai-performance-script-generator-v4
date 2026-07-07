@@ -170,9 +170,11 @@ async def generate_from_file(
     llm_model: str | None = Query(default=None),
     functional_parameterization: bool = Query(default=False),
     selected_parameterization_ids: str | None = Query(default=None),
+    groovy_config: str | None = Query(default=None),
     file: UploadFile = File(...),
     csv_files: Optional[List[UploadFile]] = File(default=None),
-    replacement_rules: Optional[UploadFile] = File(default=None)
+    replacement_rules: Optional[UploadFile] = File(default=None),
+    groovy_setup_file: Optional[UploadFile] = File(default=None),
 ):
     try:
         effective_provider = llm_provider if ai_enabled else "none"
@@ -273,6 +275,49 @@ async def generate_from_file(
         print(f"Logical Reconstruction: Grouped into {len(logical_flow)} transaction blocks.")
 
         # =====================================
+        # 5.5. PARSE GROOVY CONFIG (if provided)
+        # =====================================
+        parsed_groovy_config = None
+        if groovy_config:
+            try:
+                parsed_groovy_config = json.loads(groovy_config)
+            except json.JSONDecodeError:
+                print(f"Warning: Invalid groovy_config JSON, ignoring. Value: {groovy_config[:200]}")
+
+        # If a groovy setup file was uploaded, read script from it (overrides text input)
+        if groovy_setup_file and groovy_setup_file.filename:
+            try:
+                file_content = await groovy_setup_file.read()
+                file_text = file_content.decode("utf-8", errors="ignore").strip()
+                # Try parsing as JSON first ({"script": "..."})
+                try:
+                    file_data = json.loads(file_text)
+                    if isinstance(file_data, dict) and "script" in file_data:
+                        file_script = file_data["script"]
+                    else:
+                        file_script = file_text
+                except json.JSONDecodeError:
+                    file_script = file_text
+
+                if not parsed_groovy_config:
+                    parsed_groovy_config = {"script": file_script}
+                else:
+                    parsed_groovy_config["script"] = file_script
+            except Exception as exc:
+                print(f"Warning: Could not read groovy setup file: {exc}")
+
+        # Validate groovy_config fields
+        if parsed_groovy_config:
+            valid_element_types = {"sampler", "pre_processor", "post_processor"}
+            valid_locations = {"before_first", "after_last", "all_samplers", "specific_samplers"}
+            if parsed_groovy_config.get("element_type") not in valid_element_types:
+                parsed_groovy_config["element_type"] = "sampler"
+            if parsed_groovy_config.get("location") not in valid_locations:
+                parsed_groovy_config["location"] = "before_first"
+            if not parsed_groovy_config.get("script", "").strip():
+                parsed_groovy_config = None
+
+        # =====================================
         # 6. ASSEMBLE TEST PLAN
         # =====================================
         test_plan = {
@@ -285,7 +330,8 @@ async def generate_from_file(
             },
             "flow": logical_flow,
             "exclusion_regex": exclusion_regex,
-            "csv_files": csv_data_list
+            "csv_files": csv_data_list,
+            "groovy_config": parsed_groovy_config,
         }
 
         # =====================================
