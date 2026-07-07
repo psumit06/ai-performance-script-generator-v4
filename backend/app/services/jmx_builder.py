@@ -6,7 +6,8 @@ from app.services.jmeter_components import (
     build_cookie_manager,
     build_user_defined_variables,
     build_transaction_controller,
-    build_csv_dataset
+    build_csv_dataset,
+    build_jsr223_element,
 )
 from app.services.xml_helpers import (
     string_prop,
@@ -175,7 +176,7 @@ def build_http_file_arg(field_name, file_path, mime_type="application/octet-stre
 </elementProp>
 """
 
-def render_sampler(request):
+def render_sampler(request, jsr223_injection=""):
     """
     Renders a single HTTPSamplerProxy element and its headers/extractors/timers.
     """
@@ -375,6 +376,10 @@ elementType="Header">
     for ext in request.get("extractors", []):
         xml += render_extractor(ext)
 
+    # Inject JSR223 pre/post processor if provided
+    if jsr223_injection:
+        xml += jsr223_injection
+
     # Close Sampler Hash Tree
     xml += "</hashTree>\n"
     return xml
@@ -456,6 +461,20 @@ def render_disabled_listeners():
         + render_result_collector("Aggregate Report", "StatVisualizer")
     )
 
+
+def find_sampler_names(flow):
+    """
+    Extracts all sampler names from the logical flow.
+    Returns a list of (request_index, sampler_name) tuples.
+    """
+    names = []
+    for tx in flow:
+        for group in tx.get("groups", []):
+            for request in group:
+                names.append(request.get("name", ""))
+    return names
+
+
 def build_jmx(test_plan):
     users = test_plan["thread_group"]["users"]
     ramp_up = test_plan["thread_group"]["ramp_up"]
@@ -466,6 +485,7 @@ def build_jmx(test_plan):
     flow = test_plan.get("flow", [])
     exclusion_regex = test_plan.get("exclusion_regex", "")
     csv_files = test_plan.get("csv_files", [])
+    groovy_config = test_plan.get("groovy_config") or {}
 
     first_think_time = 0
     for tx in flow:
@@ -537,6 +557,33 @@ enabled="true">
 <hashTree/>
 """
 
+    # 4.5. JSR223 Groovy Setup Element (if configured)
+    groovy_script = groovy_config.get("script", "").strip()
+    groovy_element_type = groovy_config.get("element_type", "sampler")
+    groovy_location = groovy_config.get("location", "before_first")
+    groovy_specific_samplers = groovy_config.get("specific_samplers", [])
+
+    groovy_xml = ""
+    if groovy_script:
+        groovy_xml = build_jsr223_element(
+            element_type=groovy_element_type,
+            script=groovy_script,
+            name="Groovy Setup Script" if groovy_element_type == "sampler" else (
+                "Groovy Pre-Processor" if groovy_element_type == "pre_processor" else "Groovy Post-Processor"
+            ),
+        )
+
+    # Insert at thread group level for: Sampler (before_first) or Pre/Post + All Samplers
+    insert_at_thread_level = False
+    if groovy_script:
+        if groovy_element_type == "sampler" and groovy_location == "before_first":
+            insert_at_thread_level = True
+        elif groovy_location == "all_samplers":
+            insert_at_thread_level = True
+
+    if insert_at_thread_level:
+        xml += groovy_xml
+
     # 5. Render Logical Flow (Transaction Controllers, Parallel Controllers, timers)
     for tx_index, tx in enumerate(flow):
         tx_name = tx["transaction_name"]
@@ -564,13 +611,35 @@ enabled="true">
 <hashTree>
 """
                 for request in group:
-                    xml += render_sampler(request)
+                    # Check if this sampler should get a JSR223 pre/post processor
+                    jsr223_inject = ""
+                    if (groovy_script
+                            and groovy_element_type in ("pre_processor", "post_processor")
+                            and groovy_location == "specific_samplers"
+                            and request.get("name", "") in groovy_specific_samplers):
+                        jsr223_inject = build_jsr223_element(
+                            element_type=groovy_element_type,
+                            script=groovy_script,
+                            name=f"Groovy {'Pre' if groovy_element_type == 'pre_processor' else 'Post'}-Processor",
+                        )
+                    xml += render_sampler(request, jsr223_injection=jsr223_inject)
                     
                 # Close Parallel Controller Hash Tree
                 xml += "</hashTree>\n"
             else:
                 # Render single sampler normally
-                xml += render_sampler(group[0])
+                request = group[0]
+                jsr223_inject = ""
+                if (groovy_script
+                        and groovy_element_type in ("pre_processor", "post_processor")
+                        and groovy_location == "specific_samplers"
+                        and request.get("name", "") in groovy_specific_samplers):
+                    jsr223_inject = build_jsr223_element(
+                        element_type=groovy_element_type,
+                        script=groovy_script,
+                        name=f"Groovy {'Pre' if groovy_element_type == 'pre_processor' else 'Post'}-Processor",
+                    )
+                xml += render_sampler(request, jsr223_injection=jsr223_inject)
 
         # RENDER THINK TIME AS FLOW CONTROL ACTION (skip for last transaction)
         is_last_tx = tx_index == len(flow) - 1
@@ -583,6 +652,10 @@ enabled="true">
 
         # Close Transaction Controller Hash Tree
         xml += "</hashTree>\n"
+
+    # Insert JSR223 Sampler after last transaction (if configured)
+    if groovy_script and groovy_element_type == "sampler" and groovy_location == "after_last":
+        xml += groovy_xml
 
     # Disabled debug/report listeners are included for local inspection only.
     xml += render_disabled_listeners()

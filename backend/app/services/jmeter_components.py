@@ -265,3 +265,50 @@ enabled="true">
 
 </ThroughputController>
 """
+
+
+def build_jsr223_element(element_type, script, name="Groovy Script", language="groovy"):
+    """
+    Renders a JSR223 element for JMeter.
+
+    Args:
+        element_type: One of "sampler", "pre_processor", "post_processor"
+        script: The Groovy script content
+        name: Testname attribute for the element
+        language: Script language (default "groovy")
+
+    Returns:
+        JMX XML string for the JSR223 element with its hashTree
+    """
+    from app.services.xml_helpers import escape_xml
+
+    safe_name = escape_xml(name)
+    safe_script = escape_xml(script)
+
+    tag_map = {
+        "sampler": "JSR223Sampler",
+        "pre_processor": "JSR223PreProcessor",
+        "post_processor": "JSR223PostProcessor",
+    }
+    tag = tag_map.get(element_type, "JSR223Sampler")
+
+    return f"""
+<{tag} guiclass="TestBeanGUI"
+testclass="{tag}"
+testname="{safe_name}"
+enabled="true">
+
+<stringProp name="cacheKey">true</stringProp>
+
+<stringProp name="filename"></stringProp>
+
+<stringProp name="parameters"></stringProp>
+
+<stringProp name="scriptLanguage">{language}</stringProp>
+
+<stringProp name="scriptData">{safe_script}</stringProp>
+
+</{tag}>
+
+<hashTree/>
+"""
