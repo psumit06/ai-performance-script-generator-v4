@@ -464,15 +464,17 @@ def render_disabled_listeners():
 
 def find_sampler_names(flow):
     """
-    Extracts all sampler names from the logical flow.
-    Returns a list of (request_index, sampler_name) tuples.
+    Extracts all sampler URL paths from the logical flow.
+    Returns a list of path strings (e.g. ['/api/login', '/api/users']).
     """
-    names = []
+    paths = []
     for tx in flow:
         for group in tx.get("groups", []):
             for request in group:
-                names.append(request.get("name", ""))
-    return names
+                path = request.get("path", "")
+                if path and path not in paths:
+                    paths.append(path)
+    return paths
 
 
 def build_jmx(test_plan):
@@ -616,7 +618,7 @@ enabled="true">
                     if (groovy_script
                             and groovy_element_type in ("pre_processor", "post_processor")
                             and groovy_location == "specific_samplers"
-                            and request.get("name", "") in groovy_specific_samplers):
+                            and request.get("path", "") in groovy_specific_samplers):
                         jsr223_inject = build_jsr223_element(
                             element_type=groovy_element_type,
                             script=groovy_script,
@@ -633,7 +635,7 @@ enabled="true">
                 if (groovy_script
                         and groovy_element_type in ("pre_processor", "post_processor")
                         and groovy_location == "specific_samplers"
-                        and request.get("name", "") in groovy_specific_samplers):
+                        and request.get("path", "") in groovy_specific_samplers):
                     jsr223_inject = build_jsr223_element(
                         element_type=groovy_element_type,
                         script=groovy_script,
