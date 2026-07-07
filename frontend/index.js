@@ -3,6 +3,7 @@ let selectedFile = null;
 let selectedCsvFiles = [];
 let selectedRulesFile = null;
 let selectedGroovyFile = null;
+let selectedGroovyFileContent = "";
 let groovySamplerTags = [];
 let functionalParamCandidates = [];
 let functionalParamReviewed = false;
@@ -301,24 +302,33 @@ function initGroovySetup() {
 
 function handleGroovyFileSelect(file) {
     selectedGroovyFile = file;
+    selectedGroovyFileContent = "";
     const fileName = document.getElementById('groovyFileName');
     fileName.classList.remove('hidden');
     fileName.textContent = file.name;
-    logTerminal(`[Groovy] Loaded script file: ${file.name} (${formatBytes(file.size)})`, 'system');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        selectedGroovyFileContent = e.target.result;
+        logTerminal(`[Groovy] Loaded script file: ${file.name} (${formatBytes(file.size)})`, 'system');
+    };
+    reader.onerror = () => {
+        logTerminal(`[Groovy] Error reading file: ${file.name}`, 'error');
+    };
+    reader.readAsText(file);
 }
 
 function getGroovyConfig() {
     const enabled = document.getElementById('groovyEnabled').checked;
     if (!enabled) return null;
 
-    const script = document.getElementById('groovyScript').value.trim();
+    const script = document.getElementById('groovyScript').value.trim() || selectedGroovyFileContent.trim();
     const elementType = document.querySelector('input[name="groovyElementType"]:checked')?.value || 'sampler';
     const location = document.getElementById('groovyLocation').value;
     const specificSamplers = groovySamplerTags.slice();
 
-    if (!script && !selectedGroovyFile) return null;
+    if (!script) return null;
 
-    const config = { script: script || "", element_type: elementType, location };
+    const config = { script, element_type: elementType, location };
     if (specificSamplers.length > 0) {
         config.specific_samplers = specificSamplers;
     }
@@ -869,9 +879,6 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     const groovyConfig = getGroovyConfig();
     if (groovyConfig) {
         params.set('groovy_config', JSON.stringify(groovyConfig));
-        if (selectedGroovyFile) {
-            formData.append('groovy_setup_file', selectedGroovyFile);
-        }
     }
 
     const queryUrl = `/api/generate-from-file?${params.toString()}`;
