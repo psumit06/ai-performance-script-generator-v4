@@ -569,6 +569,7 @@ enabled="true">
 
     groovy_xml = ""
     if groovy_script:
+        print(f"[Groovy] Building JSR223 element: type={groovy_element_type}, location={groovy_location}, script_len={len(groovy_script)}")
         groovy_xml = build_jsr223_element(
             element_type=groovy_element_type,
             script=groovy_script,
@@ -576,6 +577,8 @@ enabled="true">
                 "Groovy Pre-Processor" if groovy_element_type == "pre_processor" else "Groovy Post-Processor"
             ),
         )
+    else:
+        print(f"[Groovy] No script content - skipping JSR223 element")
 
     # Insert at thread group level for: Sampler (before_first) or Pre/Post + All Samplers
     insert_at_thread_level = False
