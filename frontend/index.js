@@ -318,7 +318,7 @@ function getGroovyConfig() {
 
     if (!script && !selectedGroovyFile) return null;
 
-    const config = { element_type: elementType, location };
+    const config = { script: script || "", element_type: elementType, location };
     if (specificSamplers.length > 0) {
         config.specific_samplers = specificSamplers;
     }
