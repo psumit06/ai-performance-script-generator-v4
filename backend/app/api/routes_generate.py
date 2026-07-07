@@ -281,6 +281,7 @@ async def generate_from_file(
         if groovy_config:
             try:
                 parsed_groovy_config = json.loads(groovy_config)
+                print(f"[Groovy] Parsed groovy_config: element_type={parsed_groovy_config.get('element_type')}, location={parsed_groovy_config.get('location')}, script_len={len(parsed_groovy_config.get('script', ''))}")
             except json.JSONDecodeError:
                 print(f"Warning: Invalid groovy_config JSON, ignoring. Value: {groovy_config[:200]}")
 
@@ -289,6 +290,7 @@ async def generate_from_file(
             try:
                 file_content = await groovy_setup_file.read()
                 file_text = file_content.decode("utf-8", errors="ignore").strip()
+                print(f"[Groovy] Read groovy_setup_file: filename={groovy_setup_file.filename}, content_len={len(file_text)}")
                 # Try parsing as JSON first ({"script": "..."})
                 try:
                     file_data = json.loads(file_text)
@@ -315,7 +317,10 @@ async def generate_from_file(
             if parsed_groovy_config.get("location") not in valid_locations:
                 parsed_groovy_config["location"] = "before_first"
             if not parsed_groovy_config.get("script", "").strip():
+                print(f"[Groovy] Validation failed: script is empty after processing")
                 parsed_groovy_config = None
+            else:
+                print(f"[Groovy] Validation passed: script_len={len(parsed_groovy_config.get('script', '').strip())}")
 
         # =====================================
         # 6. ASSEMBLE TEST PLAN
