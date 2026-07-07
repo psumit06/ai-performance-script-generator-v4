@@ -563,7 +563,9 @@ enabled="true">
     groovy_script = groovy_config.get("script", "").strip()
     groovy_element_type = groovy_config.get("element_type", "sampler")
     groovy_location = groovy_config.get("location", "before_first")
-    groovy_specific_samplers = groovy_config.get("specific_samplers", [])
+    groovy_specific_samplers = [
+        s.split("?")[0] for s in groovy_config.get("specific_samplers", [])
+    ]
 
     groovy_xml = ""
     if groovy_script:
