@@ -4,6 +4,7 @@ let selectedCsvFiles = [];
 let selectedRulesFile = null;
 let selectedGroovyFile = null;
 let selectedGroovyFileContent = "";
+let groovyFileReadPromise = null;
 let groovySamplerTags = [];
 let functionalParamCandidates = [];
 let functionalParamReviewed = false;
@@ -289,32 +290,33 @@ function initGroovySetup() {
     dropzone.addEventListener('click', () => fileInput.click());
     dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
     dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-    dropzone.addEventListener('drop', (e) => {
+    dropzone.addEventListener('drop', async (e) => {
         e.preventDefault();
         dropzone.classList.remove('dragover');
         const file = Array.from(e.dataTransfer.files)[0];
-        if (file) handleGroovyFileSelect(file);
+        if (file) await handleGroovyFileSelect(file);
     });
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) handleGroovyFileSelect(e.target.files[0]);
+    fileInput.addEventListener('change', async (e) => {
+        if (e.target.files.length > 0) await handleGroovyFileSelect(e.target.files[0]);
     });
 }
 
-function handleGroovyFileSelect(file) {
+async function handleGroovyFileSelect(file) {
     selectedGroovyFile = file;
     selectedGroovyFileContent = "";
+    groovyFileReadPromise = null;
     const fileName = document.getElementById('groovyFileName');
     fileName.classList.remove('hidden');
     fileName.textContent = file.name;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        selectedGroovyFileContent = e.target.result;
+    const promise = file.text().then(content => {
+        selectedGroovyFileContent = content;
         logTerminal(`[Groovy] Loaded script file: ${file.name} (${formatBytes(file.size)})`, 'system');
-    };
-    reader.onerror = () => {
+    }).catch(err => {
         logTerminal(`[Groovy] Error reading file: ${file.name}`, 'error');
-    };
-    reader.readAsText(file);
+        selectedGroovyFileContent = "";
+    });
+    groovyFileReadPromise = promise;
+    await promise;
 }
 
 function getGroovyConfig() {
@@ -874,6 +876,10 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         if (selectedRulesFile) {
             formData.append('replacement_rules', selectedRulesFile);
         }
+    }
+
+    if (groovyFileReadPromise) {
+        await groovyFileReadPromise;
     }
 
     const groovyConfig = getGroovyConfig();
