@@ -12,6 +12,15 @@ def escape_xml(value):
     )
 
 
+def escape_xml_text(value):
+    if value is None:
+        return ""
+    result = str(value)
+    result = result.replace("&", "&amp;")
+    result = result.replace("<", "&lt;")
+    return result
+
+
 def string_prop(name, value):
 
     escaped_value = escape_xml(value)

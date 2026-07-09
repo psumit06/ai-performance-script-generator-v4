@@ -280,10 +280,10 @@ def build_jsr223_element(element_type, script, name="Groovy Script", language="g
     Returns:
         JMX XML string for the JSR223 element with its hashTree
     """
-    from app.services.xml_helpers import escape_xml
+    from app.services.xml_helpers import escape_xml, escape_xml_text
 
     safe_name = escape_xml(name)
-    safe_script = escape_xml(script)
+    safe_script = escape_xml_text(script)
 
     tag_map = {
         "sampler": "JSR223Sampler",
