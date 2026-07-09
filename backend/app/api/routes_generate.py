@@ -279,15 +279,11 @@ async def generate_from_file(
         # 5.5. PARSE GROOVY CONFIG (if provided)
         # =====================================
         parsed_groovy_config = None
-        print(f"[Groovy] groovy_config type={type(groovy_config).__name__}, truthy={bool(groovy_config)}")
         if groovy_config:
-            print(f"[Groovy] groovy_config raw (first 300 chars): {groovy_config[:300]}")
             try:
                 parsed_groovy_config = json.loads(groovy_config)
-                script_val = parsed_groovy_config.get('script', '') if isinstance(parsed_groovy_config, dict) else ''
-                print(f"[Groovy] Parsed groovy_config: type={type(parsed_groovy_config).__name__}, element_type={parsed_groovy_config.get('element_type') if isinstance(parsed_groovy_config, dict) else 'N/A'}, location={parsed_groovy_config.get('location') if isinstance(parsed_groovy_config, dict) else 'N/A'}, script_type={type(script_val).__name__}, script_len={len(str(script_val))}, script_preview={repr(str(script_val)[:100])}")
             except json.JSONDecodeError as e:
-                print(f"[Groovy] JSON decode error: {e}. Value (first 200): {groovy_config[:200]}")
+                print(f"[Groovy] JSON decode error: {e}")
 
         # If a groovy setup file was uploaded, read script from it (overrides text input)
         if groovy_setup_file and groovy_setup_file.filename:
