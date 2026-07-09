@@ -306,7 +306,7 @@ enabled="true">
 
 <stringProp name="scriptLanguage">{language}</stringProp>
 
-<stringProp name="scriptData">{safe_script}</stringProp>
+<stringProp name="script">{safe_script}</stringProp>
 
 </{tag}>
 
