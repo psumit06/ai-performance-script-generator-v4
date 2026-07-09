@@ -321,20 +321,35 @@ async function handleGroovyFileSelect(file) {
 
 function getGroovyConfig() {
     const enabled = document.getElementById('groovyEnabled').checked;
-    if (!enabled) return null;
+    if (!enabled) {
+        logTerminal('[Groovy] Config: toggle disabled, returning null', 'system');
+        return null;
+    }
 
-    const script = document.getElementById('groovyScript').value.trim() || selectedGroovyFileContent.trim();
+    const textareaVal = document.getElementById('groovyScript').value.trim();
+    const fileVal = selectedGroovyFileContent.trim();
+    const script = textareaVal || fileVal;
     const elementType = document.querySelector('input[name="groovyElementType"]:checked')?.value || 'sampler';
     const location = document.getElementById('groovyLocation').value;
     const specificSamplers = groovySamplerTags.slice();
 
-    if (!script) return null;
+    logTerminal(`[Groovy] getGroovyConfig: textarea_len=${textareaVal.length}, file_val_len=${fileVal.length}, selectedFile=${selectedGroovyFile ? selectedGroovyFile.name : 'none'}, resolved_script_len=${script.length}, script_preview=${repr(script.substring(0, 80))}`, 'system');
+
+    if (!script) {
+        logTerminal('[Groovy] Config: script is empty, returning null', 'system');
+        return null;
+    }
 
     const config = { script, element_type: elementType, location };
     if (specificSamplers.length > 0) {
         config.specific_samplers = specificSamplers;
     }
+    logTerminal(`[Groovy] Config: returning config with script_len=${script.length}, element_type=${elementType}, location=${location}`, 'success');
     return config;
+}
+
+function repr(str) {
+    return "'" + str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r') + "'";
 }
 
 async function analyzeParameterizationCandidates() {
@@ -884,7 +899,9 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
     const groovyConfig = getGroovyConfig();
     if (groovyConfig) {
-        params.set('groovy_config', JSON.stringify(groovyConfig));
+        const groovyJson = JSON.stringify(groovyConfig);
+        formData.append('groovy_config', groovyJson);
+        logTerminal(`[Groovy] Sending groovy_config as form data: script_len=${groovyConfig.script.length}, element_type=${groovyConfig.element_type}, location=${groovyConfig.location}`, 'system');
     }
 
     const queryUrl = `/api/generate-from-file?${params.toString()}`;
