@@ -201,13 +201,7 @@ def render_sampler(request, jsr223_pre="", jsr223_post=""):
     if body_mode == "raw":
         path = append_query_params_to_path(path, query_params)
     
-    xml = ""
-
-    # Pre-processor goes BEFORE the sampler (sibling, not child)
-    if jsr223_pre:
-        xml += jsr223_pre
-
-    xml += f"""
+    xml = f"""
 <HTTPSamplerProxy guiclass="HttpTestSampleGui"
 testclass="HTTPSamplerProxy"
 testname="{escape_xml(request['name'])}"
@@ -314,6 +308,10 @@ elementType="HTTPArgument">
 <hashTree>
 """
 
+    # Pre-processor: place at top of sampler's hashTree (before headers/extractors)
+    if jsr223_pre:
+        xml += jsr223_pre
+
     # Render Header Manager if headers present (or if we need to add Content-Type)
     has_content_type = any(h.get("key", "").lower() == "content-type" for h in headers)
     needs_content_type = not has_content_type and body_mode in ("urlencoded", "formdata", "raw")
@@ -382,13 +380,12 @@ elementType="Header">
     for ext in request.get("extractors", []):
         xml += render_extractor(ext)
 
-    # Close Sampler Hash Tree
-    xml += "</hashTree>\n"
-
-    # Post-processor goes AFTER the sampler's hashTree (sibling, not child)
+    # Post-processor: place at bottom of sampler's hashTree (after extractors)
     if jsr223_post:
         xml += jsr223_post
 
+    # Close Sampler Hash Tree
+    xml += "</hashTree>\n"
     return xml
 
 def render_flow_control_action(name, delay_variable):
@@ -576,7 +573,6 @@ enabled="true">
 
     groovy_xml = ""
     if groovy_script:
-        print(f"[Groovy] Building JSR223 element: type={groovy_element_type}, location={groovy_location}, script_len={len(groovy_script)}")
         groovy_xml = build_jsr223_element(
             element_type=groovy_element_type,
             script=groovy_script,
@@ -586,8 +582,6 @@ enabled="true">
         )
     else:
         print(f"[Groovy] No script content - skipping JSR223 element")
-
-    print(f"[Groovy] Config: element_type={groovy_element_type}, location={groovy_location}, specific_samplers={groovy_specific_samplers}")
 
     # Insert at thread group level for: Sampler (before_first) only
     insert_at_thread_level = False
@@ -669,7 +663,6 @@ enabled="true">
                             jsr223_pre = inject
                         else:
                             jsr223_post = inject
-                print(f"[Groovy] Sampler '{request.get('path', '')}': pre={'YES' if jsr223_pre else 'no'}, post={'YES' if jsr223_post else 'no'}")
                 xml += render_sampler(request, jsr223_pre=jsr223_pre, jsr223_post=jsr223_post)
 
         # RENDER THINK TIME AS FLOW CONTROL ACTION (skip for last transaction)
