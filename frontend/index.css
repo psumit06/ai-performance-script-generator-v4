@@ -550,6 +550,8 @@ svg[data-lucide] {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 242, 254, 0.3) rgba(0, 242, 254, 0.05);
 }
 
 .param-loading,
@@ -1190,21 +1192,24 @@ svg.stat-bg-icon {
 /* Custom Scrollbar - Cyan/Neon Blue */
 .tab-pane::-webkit-scrollbar,
 .terminal-body::-webkit-scrollbar,
-.code-preview::-webkit-scrollbar {
+.code-preview::-webkit-scrollbar,
+.param-candidate-list::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
 .tab-pane::-webkit-scrollbar-track,
 .terminal-body::-webkit-scrollbar-track,
-.code-preview::-webkit-scrollbar-track {
+.code-preview::-webkit-scrollbar-track,
+.param-candidate-list::-webkit-scrollbar-track {
     background: rgba(0, 242, 254, 0.05);
     border-radius: 4px;
 }
 
 .tab-pane::-webkit-scrollbar-thumb,
 .terminal-body::-webkit-scrollbar-thumb,
-.code-preview::-webkit-scrollbar-thumb {
+.code-preview::-webkit-scrollbar-thumb,
+.param-candidate-list::-webkit-scrollbar-thumb {
     background: rgba(0, 242, 254, 0.3);
     border-radius: 4px;
     transition: background 0.3s;
@@ -1212,13 +1217,15 @@ svg.stat-bg-icon {
 
 .tab-pane::-webkit-scrollbar-thumb:hover,
 .terminal-body::-webkit-scrollbar-thumb:hover,
-.code-preview::-webkit-scrollbar-thumb:hover {
+.code-preview::-webkit-scrollbar-thumb:hover,
+.param-candidate-list::-webkit-scrollbar-thumb:hover {
     background: rgba(0, 242, 254, 0.5);
 }
 
 .tab-pane::-webkit-scrollbar-corner,
 .terminal-body::-webkit-scrollbar-corner,
-.code-preview::-webkit-scrollbar-corner {
+.code-preview::-webkit-scrollbar-corner,
+.param-candidate-list::-webkit-scrollbar-corner {
     background: transparent;
 }
 
