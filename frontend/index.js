@@ -299,6 +299,15 @@ function initGroovySetup() {
     fileInput.addEventListener('change', async (e) => {
         if (e.target.files.length > 0) await handleGroovyFileSelect(e.target.files[0]);
     });
+
+    document.getElementById('groovyFileRemove').addEventListener('click', () => {
+        selectedGroovyFile = null;
+        selectedGroovyFileContent = "";
+        groovyFileReadPromise = null;
+        fileName.classList.add('hidden');
+        document.getElementById('groovyFileNameText').textContent = "";
+        fileInput.value = "";
+    });
 }
 
 async function handleGroovyFileSelect(file) {
@@ -306,8 +315,9 @@ async function handleGroovyFileSelect(file) {
     selectedGroovyFileContent = "";
     groovyFileReadPromise = null;
     const fileName = document.getElementById('groovyFileName');
+    const fileNameText = document.getElementById('groovyFileNameText');
     fileName.classList.remove('hidden');
-    fileName.textContent = file.name;
+    fileNameText.textContent = file.name;
     const promise = file.text().then(content => {
         selectedGroovyFileContent = content;
         logTerminal(`[Groovy] Loaded script file: ${file.name} (${formatBytes(file.size)})`, 'system');

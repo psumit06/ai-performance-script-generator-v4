@@ -1585,6 +1585,26 @@ svg.stat-bg-icon {
     font-size: 12px;
     color: var(--neon-green);
     font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.groovy-file-remove {
+    background: none;
+    border: 1px solid rgba(255, 85, 85, 0.4);
+    color: #ff5555;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.groovy-file-remove:hover {
+    background: rgba(255, 85, 85, 0.2);
+    border-color: #ff5555;
 }
 
 .radio-group {
