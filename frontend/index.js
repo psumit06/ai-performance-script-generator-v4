@@ -321,7 +321,6 @@ async function handleGroovyFileSelect(file) {
 
 function getGroovyConfig() {
     const enabled = document.getElementById('groovyEnabled').checked;
-    console.log('[Groovy DEBUG] getGroovyConfig called, enabled=', enabled);
     if (!enabled) {
         logTerminal('[Groovy] Config: toggle disabled, returning null', 'system');
         return null;
@@ -334,12 +333,10 @@ function getGroovyConfig() {
     const location = document.getElementById('groovyLocation').value;
     const specificSamplers = groovySamplerTags.slice();
 
-    console.log('[Groovy DEBUG] textarea_len=', textareaVal.length, 'file_val_len=', fileVal.length, 'selectedFile=', selectedGroovyFile ? selectedGroovyFile.name : 'none', 'resolved_script_len=', script.length, 'script_preview=', script.substring(0, 80));
-    logTerminal(`[Groovy] getGroovyConfig: textarea_len=${textareaVal.length}, file_val_len=${fileVal.length}, selectedFile=${selectedGroovyFile ? selectedGroovyFile.name : 'none'}, resolved_script_len=${script.length}, script_preview=${repr(script.substring(0, 80))}`, 'system');
+    logTerminal(`[Groovy] getGroovyConfig: textarea_len=${textareaVal.length}, file_val_len=${fileVal.length}, selectedFile=${selectedGroovyFile ? selectedGroovyFile.name : 'none'}, resolved_script_len=${script.length}`, 'system');
 
     if (!script) {
         logTerminal('[Groovy] Config: script is empty, returning null', 'system');
-        console.log('[Groovy DEBUG] script is EMPTY, returning null');
         return null;
     }
 
@@ -347,13 +344,8 @@ function getGroovyConfig() {
     if (specificSamplers.length > 0) {
         config.specific_samplers = specificSamplers;
     }
-    console.log('[Groovy DEBUG] returning config: script_len=', config.script.length, 'element_type=', config.element_type, 'location=', config.location);
     logTerminal(`[Groovy] Config: returning config with script_len=${script.length}, element_type=${elementType}, location=${location}`, 'success');
     return config;
-}
-
-function repr(str) {
-    return "'" + str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r') + "'";
 }
 
 async function analyzeParameterizationCandidates() {
@@ -897,19 +889,14 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         }
     }
 
-    console.log('[Groovy DEBUG] groovyFileReadPromise=', groovyFileReadPromise ? 'exists' : 'null', 'selectedGroovyFileContent_len=', selectedGroovyFileContent.length);
     if (groovyFileReadPromise) {
-        console.log('[Groovy DEBUG] awaiting groovyFileReadPromise...');
         await groovyFileReadPromise;
-        console.log('[Groovy DEBUG] after await, selectedGroovyFileContent_len=', selectedGroovyFileContent.length);
     }
 
     const groovyConfig = getGroovyConfig();
-    console.log('[Groovy DEBUG] groovyConfig=', groovyConfig ? JSON.stringify(groovyConfig).substring(0, 200) : 'null');
     if (groovyConfig) {
         const groovyJson = JSON.stringify(groovyConfig);
         formData.append('groovy_config', groovyJson);
-        console.log('[Groovy DEBUG] appended groovy_config to formData, json_len=', groovyJson.length);
         logTerminal(`[Groovy] Sending groovy_config as form data: script_len=${groovyConfig.script.length}, element_type=${groovyConfig.element_type}, location=${groovyConfig.location}`, 'system');
     }
 
