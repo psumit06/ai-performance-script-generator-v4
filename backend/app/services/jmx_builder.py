@@ -587,6 +587,8 @@ enabled="true">
     else:
         print(f"[Groovy] No script content - skipping JSR223 element")
 
+    print(f"[Groovy] Config: element_type={groovy_element_type}, location={groovy_location}, specific_samplers={groovy_specific_samplers}")
+
     # Insert at thread group level for: Sampler (before_first) only
     insert_at_thread_level = False
     if groovy_script:
@@ -667,6 +669,7 @@ enabled="true">
                             jsr223_pre = inject
                         else:
                             jsr223_post = inject
+                print(f"[Groovy] Sampler '{request.get('path', '')}': pre={'YES' if jsr223_pre else 'no'}, post={'YES' if jsr223_post else 'no'}")
                 xml += render_sampler(request, jsr223_pre=jsr223_pre, jsr223_post=jsr223_post)
 
         # RENDER THINK TIME AS FLOW CONTROL ACTION (skip for last transaction)
