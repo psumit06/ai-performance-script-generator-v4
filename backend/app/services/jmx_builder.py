@@ -176,7 +176,7 @@ def build_http_file_arg(field_name, file_path, mime_type="application/octet-stre
 </elementProp>
 """
 
-def render_sampler(request, jsr223_injection=""):
+def render_sampler(request, jsr223_pre="", jsr223_post=""):
     """
     Renders a single HTTPSamplerProxy element and its headers/extractors/timers.
     """
@@ -201,7 +201,13 @@ def render_sampler(request, jsr223_injection=""):
     if body_mode == "raw":
         path = append_query_params_to_path(path, query_params)
     
-    xml = f"""
+    xml = ""
+
+    # Pre-processor goes BEFORE the sampler (sibling, not child)
+    if jsr223_pre:
+        xml += jsr223_pre
+
+    xml += f"""
 <HTTPSamplerProxy guiclass="HttpTestSampleGui"
 testclass="HTTPSamplerProxy"
 testname="{escape_xml(request['name'])}"
@@ -376,12 +382,13 @@ elementType="Header">
     for ext in request.get("extractors", []):
         xml += render_extractor(ext)
 
-    # Inject JSR223 pre/post processor if provided
-    if jsr223_injection:
-        xml += jsr223_injection
-
     # Close Sampler Hash Tree
     xml += "</hashTree>\n"
+
+    # Post-processor goes AFTER the sampler's hashTree (sibling, not child)
+    if jsr223_post:
+        xml += jsr223_post
+
     return xml
 
 def render_flow_control_action(name, delay_variable):
@@ -580,12 +587,10 @@ enabled="true">
     else:
         print(f"[Groovy] No script content - skipping JSR223 element")
 
-    # Insert at thread group level for: Sampler (before_first) or Pre/Post + All Samplers
+    # Insert at thread group level for: Sampler (before_first) only
     insert_at_thread_level = False
     if groovy_script:
         if groovy_element_type == "sampler" and groovy_location == "before_first":
-            insert_at_thread_level = True
-        elif groovy_location == "all_samplers":
             insert_at_thread_level = True
 
     if insert_at_thread_level:
@@ -619,34 +624,50 @@ enabled="true">
 """
                 for request in group:
                     # Check if this sampler should get a JSR223 pre/post processor
-                    jsr223_inject = ""
-                    if (groovy_script
-                            and groovy_element_type in ("pre_processor", "post_processor")
-                            and groovy_location == "specific_samplers"
-                            and request.get("path", "") in groovy_specific_samplers):
-                        jsr223_inject = build_jsr223_element(
-                            element_type=groovy_element_type,
-                            script=groovy_script,
-                            name=f"Groovy {'Pre' if groovy_element_type == 'pre_processor' else 'Post'}-Processor",
-                        )
-                    xml += render_sampler(request, jsr223_injection=jsr223_inject)
+                    jsr223_pre = ""
+                    jsr223_post = ""
+                    if groovy_script and groovy_element_type in ("pre_processor", "post_processor"):
+                        should_inject = False
+                        if groovy_location == "all_samplers":
+                            should_inject = True
+                        elif groovy_location == "specific_samplers" and request.get("path", "") in groovy_specific_samplers:
+                            should_inject = True
+                        if should_inject:
+                            inject = build_jsr223_element(
+                                element_type=groovy_element_type,
+                                script=groovy_script,
+                                name=f"Groovy {'Pre' if groovy_element_type == 'pre_processor' else 'Post'}-Processor",
+                            )
+                            if groovy_element_type == "pre_processor":
+                                jsr223_pre = inject
+                            else:
+                                jsr223_post = inject
+                    xml += render_sampler(request, jsr223_pre=jsr223_pre, jsr223_post=jsr223_post)
                     
                 # Close Parallel Controller Hash Tree
                 xml += "</hashTree>\n"
             else:
                 # Render single sampler normally
                 request = group[0]
-                jsr223_inject = ""
-                if (groovy_script
-                        and groovy_element_type in ("pre_processor", "post_processor")
-                        and groovy_location == "specific_samplers"
-                        and request.get("path", "") in groovy_specific_samplers):
-                    jsr223_inject = build_jsr223_element(
-                        element_type=groovy_element_type,
-                        script=groovy_script,
-                        name=f"Groovy {'Pre' if groovy_element_type == 'pre_processor' else 'Post'}-Processor",
-                    )
-                xml += render_sampler(request, jsr223_injection=jsr223_inject)
+                jsr223_pre = ""
+                jsr223_post = ""
+                if groovy_script and groovy_element_type in ("pre_processor", "post_processor"):
+                    should_inject = False
+                    if groovy_location == "all_samplers":
+                        should_inject = True
+                    elif groovy_location == "specific_samplers" and request.get("path", "") in groovy_specific_samplers:
+                        should_inject = True
+                    if should_inject:
+                        inject = build_jsr223_element(
+                            element_type=groovy_element_type,
+                            script=groovy_script,
+                            name=f"Groovy {'Pre' if groovy_element_type == 'pre_processor' else 'Post'}-Processor",
+                        )
+                        if groovy_element_type == "pre_processor":
+                            jsr223_pre = inject
+                        else:
+                            jsr223_post = inject
+                xml += render_sampler(request, jsr223_pre=jsr223_pre, jsr223_post=jsr223_post)
 
         # RENDER THINK TIME AS FLOW CONTROL ACTION (skip for last transaction)
         is_last_tx = tx_index == len(flow) - 1
