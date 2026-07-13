@@ -22,7 +22,8 @@ class GitHubUploadRequest(BaseModel):
 def upload_to_github(request: GitHubUploadRequest):
     """Upload generated JMX and data files to a GitHub repository."""
     from dotenv import load_dotenv
-    load_dotenv()
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    load_dotenv(os.path.join(backend_dir, ".env"))
 
     token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
     if not token:
@@ -55,7 +56,8 @@ def upload_to_github(request: GitHubUploadRequest):
 def list_repos():
     """List accessible repositories for the authenticated user."""
     from dotenv import load_dotenv
-    load_dotenv()
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    load_dotenv(os.path.join(backend_dir, ".env"))
 
     token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
     if not token:
