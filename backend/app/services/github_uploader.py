@@ -10,7 +10,7 @@ def _get_token():
     from dotenv import load_dotenv
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     env_path = os.path.join(backend_dir, ".env")
-    load_dotenv(env_path)
+    load_dotenv(env_path, override=True)
     # Prefer the dedicated upload token, fall back to GITHUB_TOKEN
     return os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
 
@@ -172,17 +172,49 @@ def auto_upload_generated_files(
       - GITHUB_UPLOAD_OWNER  (defaults to authenticated user)
     """
     from dotenv import load_dotenv
-    # Load from backend/.env explicitly (not just CWD)
+
+    # Resolve backend/.env path from this file's location
+    # github_uploader.py -> services/ -> app/ -> backend/
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     env_path = os.path.join(backend_dir, ".env")
-    load_dotenv(env_path)
+
+    print(f"[GitHub Auto-Upload] Loading .env from: {env_path}")
+    print(f"[GitHub Auto-Upload] .env exists: {os.path.exists(env_path)}")
+
+    load_dotenv(env_path, override=True)
 
     repo = os.getenv("GITHUB_UPLOAD_REPO", "")
     subfolder = os.getenv("GITHUB_UPLOAD_PATH", "automated-usecases")
     branch = os.getenv("GITHUB_UPLOAD_BRANCH", "main")
     owner = os.getenv("GITHUB_UPLOAD_OWNER", "") or None
 
-    print(f"[GitHub Auto-Upload] Config loaded from: {env_path}")
+    # Fallback: if dotenv didn't pick it up, parse .env manually
+    if not repo and os.path.exists(env_path):
+        print("[GitHub Auto-Upload] dotenv returned empty repo, trying manual parse...")
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, _, val = line.partition("=")
+                    key = key.strip()
+                    val = val.strip()
+                    if key == "GITHUB_UPLOAD_REPO" and val:
+                        repo = val
+                        os.environ["GITHUB_UPLOAD_REPO"] = val
+                    elif key == "GITHUB_UPLOAD_PATH" and val:
+                        subfolder = val
+                        os.environ["GITHUB_UPLOAD_PATH"] = val
+                    elif key == "GITHUB_UPLOAD_BRANCH" and val:
+                        branch = val
+                        os.environ["GITHUB_UPLOAD_BRANCH"] = val
+                    elif key == "GITHUB_UPLOAD_OWNER" and val:
+                        owner = val
+                        os.environ["GITHUB_UPLOAD_OWNER"] = val
+                    elif key == "GITHUB_UPLOAD_TOKEN" and val:
+                        os.environ["GITHUB_UPLOAD_TOKEN"] = val
+
+        print(f"[GitHub Auto-Upload] After manual parse: repo={repo}, subfolder={subfolder}, branch={branch}, owner={owner}")
+
     print(f"[GitHub Auto-Upload] Config: repo={repo}, subfolder={subfolder}, branch={branch}, owner={owner}")
 
     if not repo:
