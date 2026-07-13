@@ -177,7 +177,10 @@ def auto_upload_generated_files(
     branch = os.getenv("GITHUB_UPLOAD_BRANCH", "main")
     owner = os.getenv("GITHUB_UPLOAD_OWNER", "") or None
 
+    print(f"[GitHub Auto-Upload] Config: repo={repo}, subfolder={subfolder}, branch={branch}, owner={owner}")
+
     if not repo:
+        print("[GitHub Auto-Upload] ERROR: GITHUB_UPLOAD_REPO is not set")
         return {
             "success": False,
             "error": "GITHUB_UPLOAD_REPO is not configured. Add it to backend/.env",
@@ -187,6 +190,7 @@ def auto_upload_generated_files(
 
     effective_token = token or _get_token()
     if not effective_token:
+        print("[GitHub Auto-Upload] ERROR: No GitHub token available")
         return {
             "success": False,
             "error": "GitHub token is not configured. Add GITHUB_UPLOAD_TOKEN to backend/.env",
@@ -194,6 +198,7 @@ def auto_upload_generated_files(
             "errors": [],
         }
 
+    print(f"[GitHub Auto-Upload] Token present: {len(effective_token)} chars, uploading JMX ({len(jmx_content)} bytes)...")
     return upload_jmx_to_github(
         repo_name=repo,
         jmx_content=jmx_content,
