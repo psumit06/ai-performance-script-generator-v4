@@ -369,30 +369,39 @@ async def generate_from_file(
 
                 # Auto-upload generated files to GitHub
                 upload_result = None
-                if result.get("jmx_content"):
-                    csv_dict = None
-                    if csv_data_list:
-                        csv_dict = {}
-                        for csv in csv_data_list:
-                            csv_filename = csv.get("filename", "data.csv")
-                            csv_var_names = csv.get("variables", [])
-                            csv_rows = csv.get("rows", [])
-                            if csv_var_names and csv_rows:
-                                lines = [",".join(csv_var_names)]
-                                for row in csv_rows:
-                                    lines.append(",".join(str(row.get(v, "")) for v in csv_var_names))
-                                csv_dict[csv_filename] = "\n".join(lines)
+                try:
+                    if result.get("jmx_content"):
+                        csv_dict = None
+                        if csv_data_list:
+                            csv_dict = {}
+                            for csv in csv_data_list:
+                                csv_filename = csv.get("filename", "data.csv")
+                                csv_var_names = csv.get("variables", [])
+                                csv_rows = csv.get("rows", [])
+                                if csv_var_names and csv_rows:
+                                    lines = [",".join(csv_var_names)]
+                                    for row in csv_rows:
+                                        lines.append(",".join(str(row.get(v, "")) for v in csv_var_names))
+                                    csv_dict[csv_filename] = "\n".join(lines)
 
-                    on_log("info", "Uploading generated files to GitHub...")
-                    upload_result = auto_upload_generated_files(
-                        jmx_content=result["jmx_content"],
-                        jmx_filename=jmx_filename,
-                        csv_files=csv_dict,
-                    )
-                    if upload_result.get("success"):
-                        on_log("info", f"GitHub upload successful: {upload_result.get('owner')}/{upload_result.get('repo')}")
+                        on_log("info", "Uploading generated files to GitHub...")
+                        upload_result = auto_upload_generated_files(
+                            jmx_content=result["jmx_content"],
+                            jmx_filename=jmx_filename,
+                            csv_files=csv_dict,
+                        )
+                        if upload_result.get("success"):
+                            on_log("info", f"GitHub upload successful: {upload_result.get('owner')}/{upload_result.get('repo')}")
+                        else:
+                            on_log("warning", f"GitHub upload failed: {upload_result.get('error', 'Unknown error')}")
                     else:
-                        on_log("warning", f"GitHub upload failed: {upload_result.get('error', 'Unknown error')}")
+                        on_log("warning", "GitHub upload skipped: no jmx_content in result")
+                except Exception as upload_exc:
+                    import traceback
+                    print(f"[GitHub Auto-Upload Exception] {upload_exc}")
+                    traceback.print_exc()
+                    on_log("warning", f"GitHub upload exception: {upload_exc}")
+                    upload_result = {"success": False, "error": str(upload_exc), "uploaded": [], "errors": []}
 
                 log_queue.put({"type": "result", "data": result, "upload": upload_result})
             except Exception as e:
