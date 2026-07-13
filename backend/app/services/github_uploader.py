@@ -115,6 +115,8 @@ def upload_jmx_to_github(
         return {
             "success": False,
             "error": f"Repository '{owner}/{repo_name}' not found or not accessible.",
+            "uploaded": [],
+            "errors": [],
         }
 
     results = []
@@ -179,6 +181,8 @@ def auto_upload_generated_files(
         return {
             "success": False,
             "error": "GITHUB_UPLOAD_REPO is not configured. Add it to backend/.env",
+            "uploaded": [],
+            "errors": [],
         }
 
     effective_token = token or _get_token()
@@ -186,6 +190,8 @@ def auto_upload_generated_files(
         return {
             "success": False,
             "error": "GitHub token is not configured. Add GITHUB_UPLOAD_TOKEN to backend/.env",
+            "uploaded": [],
+            "errors": [],
         }
 
     return upload_jmx_to_github(
