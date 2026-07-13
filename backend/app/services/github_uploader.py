@@ -8,7 +8,9 @@ GITHUB_API = "https://api.github.com"
 
 def _get_token():
     from dotenv import load_dotenv
-    load_dotenv()
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    env_path = os.path.join(backend_dir, ".env")
+    load_dotenv(env_path)
     # Prefer the dedicated upload token, fall back to GITHUB_TOKEN
     return os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
 
@@ -170,13 +172,17 @@ def auto_upload_generated_files(
       - GITHUB_UPLOAD_OWNER  (defaults to authenticated user)
     """
     from dotenv import load_dotenv
-    load_dotenv()
+    # Load from backend/.env explicitly (not just CWD)
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    env_path = os.path.join(backend_dir, ".env")
+    load_dotenv(env_path)
 
     repo = os.getenv("GITHUB_UPLOAD_REPO", "")
     subfolder = os.getenv("GITHUB_UPLOAD_PATH", "automated-usecases")
     branch = os.getenv("GITHUB_UPLOAD_BRANCH", "main")
     owner = os.getenv("GITHUB_UPLOAD_OWNER", "") or None
 
+    print(f"[GitHub Auto-Upload] Config loaded from: {env_path}")
     print(f"[GitHub Auto-Upload] Config: repo={repo}, subfolder={subfolder}, branch={branch}, owner={owner}")
 
     if not repo:
