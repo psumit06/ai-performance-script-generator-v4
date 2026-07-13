@@ -1386,12 +1386,15 @@ uploadToGithubBtn.addEventListener('click', async () => {
 
         if (result.success) {
             logTerminal(`[GitHub] Successfully uploaded to ${result.owner}/${result.repo}:`, 'success');
-            result.uploaded.forEach(f => {
+            (result.uploaded || []).forEach(f => {
                 logTerminal(`   -> ${f.file}`, 'success');
             });
         } else {
             logTerminal(`[GitHub] Upload completed with errors:`, 'error');
-            result.errors.forEach(e => {
+            if (result.error) {
+                logTerminal(`   -> ${result.error}`, 'error');
+            }
+            (result.errors || []).forEach(e => {
                 logTerminal(`   -> ${e.file}: ${e.error}`, 'error');
             });
         }
