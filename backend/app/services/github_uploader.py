@@ -111,15 +111,20 @@ def upload_jmx_to_github(
     Returns:
         dict with upload results
     """
+    print(f"[GitHub Upload] Resolving owner...")
     owner = owner_override or get_repo_owner(token)
+    print(f"[GitHub Upload] Owner: {owner}")
 
+    print(f"[GitHub Upload] Checking repo {owner}/{repo_name}...")
     if not check_repo_exists(owner, repo_name, token):
+        print(f"[GitHub Upload] ERROR: Repo {owner}/{repo_name} not found")
         return {
             "success": False,
             "error": f"Repository '{owner}/{repo_name}' not found or not accessible.",
             "uploaded": [],
             "errors": [],
         }
+    print(f"[GitHub Upload] Repo exists. Uploading files...")
 
     results = []
     errors = []
@@ -131,9 +136,13 @@ def upload_jmx_to_github(
     jmx_path = f"{prefix}{jmx_filename}"
     msg = commit_message or f"Upload {jmx_filename} via AI Performance Script Generator"
     try:
+        print(f"[GitHub Upload] Uploading {jmx_path} ({len(jmx_content)} bytes)...")
         result = upload_file(owner, repo_name, jmx_path, jmx_content, msg, branch, token)
-        results.append({"file": jmx_path, "url": result.get("content", {}).get("html_url", "")})
+        url = result.get("content", {}).get("html_url", "")
+        print(f"[GitHub Upload] SUCCESS: {jmx_path} -> {url}")
+        results.append({"file": jmx_path, "url": url})
     except Exception as e:
+        print(f"[GitHub Upload] FAILED: {jmx_path} -> {e}")
         errors.append({"file": jmx_path, "error": str(e)})
 
     # Upload CSV files under data/ folder within the subfolder
