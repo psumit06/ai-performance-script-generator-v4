@@ -14,6 +14,8 @@ class GitHubUploadRequest(BaseModel):
     jmx_filename: str = "generated_test_plan.jmx"
     csv_files: Optional[dict] = None
     commit_message: Optional[str] = None
+    subfolder: str = ""
+    owner_override: Optional[str] = None
 
 
 @router.post("/github/upload")
@@ -22,13 +24,13 @@ def upload_to_github(request: GitHubUploadRequest):
     from dotenv import load_dotenv
     load_dotenv()
 
-    token = os.getenv("GITHUB_TOKEN", "")
+    token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
     if not token:
         raise HTTPException(
             status_code=400,
             detail={
                 "code": "GITHUB_TOKEN_NOT_CONFIGURED",
-                "message": "GitHub token is not configured. Add GITHUB_TOKEN to backend/.env",
+                "message": "GitHub token is not configured. Add GITHUB_UPLOAD_TOKEN to backend/.env",
             },
         )
 
@@ -41,6 +43,8 @@ def upload_to_github(request: GitHubUploadRequest):
             branch=request.branch,
             commit_message=request.commit_message,
             token=token,
+            subfolder=request.subfolder,
+            owner_override=request.owner_override,
         )
         return result
     except Exception as e:
@@ -53,7 +57,7 @@ def list_repos():
     from dotenv import load_dotenv
     load_dotenv()
 
-    token = os.getenv("GITHUB_TOKEN", "")
+    token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
     if not token:
         raise HTTPException(
             status_code=400,
