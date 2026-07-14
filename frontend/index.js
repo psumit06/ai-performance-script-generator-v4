@@ -1314,17 +1314,56 @@ function createNodeElement(ep, correlations) {
 }
 
 // =====================================
-// GitHub Upload
+// GitHub Upload (OAuth + SSO)
 // =====================================
 const githubUploadGroup = document.getElementById('githubUploadGroup');
 const githubRepoInput = document.getElementById('githubRepoName');
 const uploadToGithubBtn = document.getElementById('uploadToGithubBtn');
+const githubAuthSection = document.getElementById('githubAuthSection');
+const githubUploadSection = document.getElementById('githubUploadSection');
+const githubUserSpan = document.getElementById('githubUser');
+let githubSessionId = null;
+
+// Listen for OAuth callback message from popup
+window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'github-auth-complete' && event.data.session_id) {
+        githubSessionId = event.data.session_id;
+        // Fetch user info
+        fetch(`/api/github/token/${githubSessionId}`)
+            .then(r => r.json())
+            .then(data => {
+                githubUserSpan.textContent = data.user;
+                githubAuthSection.style.display = 'none';
+                githubUploadSection.style.display = 'block';
+                lucide.createIcons();
+                logTerminal(`[GitHub] Signed in as ${data.user}`, 'success');
+            })
+            .catch(() => {
+                logTerminal('[GitHub] Failed to verify auth session', 'error');
+            });
+    }
+});
+
+function signInWithGitHub() {
+    const width = 600, height = 700;
+    const left = (screen.width - width) / 2;
+    const top = (screen.height - height) / 2;
+    window.open('/api/github/auth', 'github-oauth', `width=${width},height=${height},left=${left},top=${top}`);
+}
 
 // Show GitHub upload group after successful generation
 function showGithubUpload() {
     githubUploadGroup.style.display = 'block';
-    uploadToGithubBtn.disabled = false;
     lucide.createIcons();
+    // If already signed in, show upload section
+    if (githubSessionId) {
+        githubAuthSection.style.display = 'none';
+        githubUploadSection.style.display = 'block';
+        lucide.createIcons();
+    } else {
+        githubAuthSection.style.display = 'block';
+        githubUploadSection.style.display = 'none';
+    }
 }
 
 // Hide GitHub upload group
@@ -1342,6 +1381,11 @@ githubRepoInput.addEventListener('input', () => {
 uploadToGithubBtn.addEventListener('click', async () => {
     const repoName = githubRepoInput.value.trim();
     if (!repoName || !generatedJmxContent) return;
+
+    if (!githubSessionId) {
+        showUserAlert('Please sign in with GitHub first.');
+        return;
+    }
 
     uploadToGithubBtn.disabled = true;
     uploadToGithubBtn.querySelector('span').textContent = 'Uploading...';
@@ -1366,6 +1410,7 @@ uploadToGithubBtn.addEventListener('click', async () => {
                 jmx_content: generatedJmxContent,
                 jmx_filename: selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, "") + "_generated.jmx" : "generated_test_plan.jmx",
                 csv_files: csvFilesDict,
+                session_id: githubSessionId,
             })
         });
 

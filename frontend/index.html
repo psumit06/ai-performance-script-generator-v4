@@ -228,14 +228,25 @@
                         <span>Download JMX Script</span>
                     </button>
                     <div class="github-upload-group" id="githubUploadGroup" style="display:none;">
-                        <div class="form-group" style="margin-bottom:8px;">
-                            <label for="githubRepoName"><i data-lucide="github"></i> Use Case Name</label>
-                            <input type="text" id="githubRepoName" class="input-field" placeholder="e.g. test-api-work" />
+                        <div id="githubAuthSection">
+                            <button class="btn-github" id="githubSignInBtn" onclick="signInWithGitHub()">
+                                <i data-lucide="github"></i>
+                                <span>Sign in with GitHub</span>
+                            </button>
                         </div>
-                        <button class="btn-github" id="uploadToGithubBtn" disabled>
-                            <i data-lucide="upload-cloud"></i>
-                            <span>Upload to GitHub</span>
-                        </button>
+                        <div id="githubUploadSection" style="display:none;">
+                            <div class="form-group" style="margin-bottom:8px;">
+                                <label><i data-lucide="user-check"></i> Signed in as <strong id="githubUser"></strong></label>
+                            </div>
+                            <div class="form-group" style="margin-bottom:8px;">
+                                <label for="githubRepoName"><i data-lucide="folder"></i> Use Case Name</label>
+                                <input type="text" id="githubRepoName" class="input-field" placeholder="e.g. test-api-work" />
+                            </div>
+                            <button class="btn-github" id="uploadToGithubBtn" disabled>
+                                <i data-lucide="upload-cloud"></i>
+                                <span>Upload to GitHub</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </section>
