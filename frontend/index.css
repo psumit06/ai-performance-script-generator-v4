@@ -860,15 +860,17 @@ svg[data-lucide] {
 .slider-input {
     width: 72px;
     padding: 6px 8px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-card);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-primary);
+    background: var(--bg-card);
+    color: var(--neon-blue);
     font-family: var(--font-mono);
     font-size: 0.85rem;
+    font-weight: 600;
     text-align: center;
     outline: none;
     -moz-appearance: textfield;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .slider-input::-webkit-outer-spin-button,
@@ -879,7 +881,7 @@ svg[data-lucide] {
 
 .slider-input:focus {
     border-color: var(--neon-blue);
-    box-shadow: 0 0 0 3px rgba(0, 242, 254, 0.08);
+    box-shadow: 0 0 0 3px rgba(0, 242, 254, 0.12);
 }
 
 .slider-unit {
@@ -887,7 +889,6 @@ svg[data-lucide] {
     font-family: var(--font-mono);
     font-size: 0.75rem;
     min-width: 20px;
-    opacity: 0.7;
 }
 
 /* Buttons */
