@@ -44,7 +44,6 @@ from app.services.functional_parameterizer import (
     apply_functional_parameterization,
     load_rules_json
 )
-from app.services.github_uploader import auto_upload_generated_files
 
 router = APIRouter()
 
@@ -347,7 +346,6 @@ async def generate_from_file(
         output_dir = os.path.join(backend_dir, "output")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, "generated_test_plan.jmx")
-        jmx_filename = (file.filename.replace(os.path.splitext(file.filename)[1], "") + "_generated.jmx") if file and file.filename else "generated_test_plan.jmx"
 
         # Use a queue to stream logs from the blocking self-healing loop to SSE
         log_queue = queue.Queue()
@@ -367,43 +365,7 @@ async def generate_from_file(
                     on_log=on_log
                 )
 
-                # Auto-upload generated files to GitHub
-                upload_result = None
-                try:
-                    if result.get("jmx_content"):
-                        csv_dict = None
-                        if csv_data_list:
-                            csv_dict = {}
-                            for csv in csv_data_list:
-                                csv_filename = csv.get("filename", "data.csv")
-                                csv_var_names = csv.get("variables", [])
-                                csv_rows = csv.get("rows", [])
-                                if csv_var_names and csv_rows:
-                                    lines = [",".join(csv_var_names)]
-                                    for row in csv_rows:
-                                        lines.append(",".join(str(row.get(v, "")) for v in csv_var_names))
-                                    csv_dict[csv_filename] = "\n".join(lines)
-
-                        on_log("info", "Uploading generated files to GitHub...")
-                        upload_result = auto_upload_generated_files(
-                            jmx_content=result["jmx_content"],
-                            jmx_filename=jmx_filename,
-                            csv_files=csv_dict,
-                        )
-                        if upload_result.get("success"):
-                            on_log("info", f"GitHub upload successful: {upload_result.get('owner')}/{upload_result.get('repo')}")
-                        else:
-                            on_log("warning", f"GitHub upload failed: {upload_result.get('error', 'Unknown error')}")
-                    else:
-                        on_log("warning", "GitHub upload skipped: no jmx_content in result")
-                except Exception as upload_exc:
-                    import traceback
-                    print(f"[GitHub Auto-Upload Exception] {upload_exc}")
-                    traceback.print_exc()
-                    on_log("warning", f"GitHub upload exception: {upload_exc}")
-                    upload_result = {"success": False, "error": str(upload_exc), "uploaded": [], "errors": []}
-
-                log_queue.put({"type": "result", "data": result, "upload": upload_result})
+                log_queue.put({"type": "result", "data": result})
             except Exception as e:
                 log_queue.put({"type": "error", "message": str(e)})
             finally:
@@ -423,7 +385,6 @@ async def generate_from_file(
                         yield f"event: log\ndata: {json.dumps({'log_type': item['log_type'], 'message': item['message']})}\n\n"
                     elif item["type"] == "result":
                         healing_result = item["data"]
-                        github_upload = item.get("upload")
                         # Build the final response payload
                         response_data = {
                             "success": healing_result["success"],
@@ -473,7 +434,6 @@ async def generate_from_file(
                                 "candidates": parameterization_candidates,
                                 "applied": applied_parameterizations
                             },
-                            "github_upload": github_upload,
                             "flow": logical_flow,
                             "endpoints": [
                                 {

@@ -35,6 +35,10 @@ def upload_to_github(request: GitHubUploadRequest):
             },
         )
 
+    # Use owner/subfolder from env if not explicitly provided in request
+    owner = request.owner_override or os.getenv("GITHUB_UPLOAD_OWNER", "") or None
+    subfolder = request.subfolder or os.getenv("GITHUB_UPLOAD_PATH", "automated-usecases")
+
     try:
         result = upload_jmx_to_github(
             repo_name=request.repo_name,
@@ -44,8 +48,8 @@ def upload_to_github(request: GitHubUploadRequest):
             branch=request.branch,
             commit_message=request.commit_message,
             token=token,
-            subfolder=request.subfolder,
-            owner_override=request.owner_override,
+            subfolder=subfolder,
+            owner_override=owner,
         )
         return result
     except Exception as e:
