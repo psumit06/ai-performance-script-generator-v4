@@ -1066,19 +1066,6 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
             });
         }
 
-        // Log GitHub auto-upload result
-        if (data.github_upload) {
-            const gh = data.github_upload;
-            if (gh.success) {
-                logTerminal(`[GitHub Auto-Upload] Files uploaded to ${gh.owner}/${gh.repo}:`, 'success');
-                gh.uploaded.forEach(f => {
-                    logTerminal(`   -> ${f.file}`, 'success');
-                });
-            } else {
-                logTerminal(`[GitHub Auto-Upload] Failed: ${gh.error || 'Unknown error'}`, 'error');
-            }
-        }
-
         // Log functional parameterization info
         if (data.functional_parameterization && data.functional_parameterization.enabled) {
             const fp = data.functional_parameterization;
