@@ -1355,7 +1355,8 @@ uploadToGithubBtn.addEventListener('click', async () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                repo_name: repoName,
+                repo_name: 'dss-pe-jmeter',
+                subfolder: repoName,
                 jmx_content: generatedJmxContent,
                 jmx_filename: selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, "") + "_generated.jmx" : "generated_test_plan.jmx",
                 csv_files: csvFilesDict,
