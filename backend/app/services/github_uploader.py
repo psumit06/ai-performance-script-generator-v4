@@ -35,6 +35,9 @@ def check_repo_exists(owner: str, repo: str, token: Optional[str] = None) -> boo
     """Check if a repository exists and is accessible."""
     headers = _headers(token)
     resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}", headers=headers, timeout=10)
+    print(f"[GitHub Upload] Repo check: GET /repos/{owner}/{repo} -> {resp.status_code}")
+    if resp.status_code != 200:
+        print(f"[GitHub Upload] Repo check response: {resp.text[:500]}")
     return resp.status_code == 200
 
 
@@ -120,7 +123,7 @@ def upload_jmx_to_github(
         print(f"[GitHub Upload] ERROR: Repo {owner}/{repo_name} not found")
         return {
             "success": False,
-            "error": f"Repository '{owner}/{repo_name}' not found or not accessible.",
+            "error": f"Repository '{owner}/{repo_name}' not found or token lacks access. Ensure: (1) repo exists, (2) token has 'repo' scope, (3) token owner is a member of '{owner}' org.",
             "uploaded": [],
             "errors": [],
         }
