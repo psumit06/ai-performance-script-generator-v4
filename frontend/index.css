@@ -866,7 +866,7 @@ svg[data-lucide] {
     color: var(--neon-blue);
     font-family: var(--font-mono);
     font-size: 0.85rem;
-    font-weight: 600;
+    font-weight: 700;
     text-align: center;
     outline: none;
     -moz-appearance: textfield;
@@ -881,13 +881,14 @@ svg[data-lucide] {
 
 .slider-input:focus {
     border-color: var(--neon-blue);
-    box-shadow: 0 0 0 3px rgba(0, 242, 254, 0.12);
+    box-shadow: 0 0 8px rgba(0, 242, 254, 0.25);
 }
 
 .slider-unit {
-    color: var(--text-muted);
+    color: var(--neon-purple);
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
     min-width: 20px;
 }
 
