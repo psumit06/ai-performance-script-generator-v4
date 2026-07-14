@@ -828,7 +828,7 @@ svg[data-lucide] {
 .slider-wrapper {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
 }
 
 .slider-wrapper input[type="range"] {
@@ -857,17 +857,34 @@ svg[data-lucide] {
     transform: scale(1.2);
 }
 
-.val-badge {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 4px 10px;
+.slider-input {
+    width: 72px;
+    padding: 4px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    min-width: 65px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #e0e0e0;
+    font-size: 13px;
     text-align: center;
-    font-family: var(--font-mono);
-    color: var(--neon-blue);
+    outline: none;
+    -moz-appearance: textfield;
+}
+
+.slider-input::-webkit-outer-spin-button,
+.slider-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.slider-input:focus {
+    border-color: var(--neon-blue);
+    box-shadow: 0 0 6px rgba(0, 242, 254, 0.3);
+}
+
+.slider-unit {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 12px;
+    min-width: 20px;
 }
 
 /* Buttons */

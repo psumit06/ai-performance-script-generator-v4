@@ -762,14 +762,20 @@ function removeCsvFile(index) {
     updateCsvFileList();
 }
 
-// Stats Range Sliders Value Updater
-function updateVal(badgeId, val) {
-    const badge = document.getElementById(badgeId);
-    if (badgeId === 'rampUpVal') badge.textContent = val + 's';
-    else if (badgeId === 'durationVal') badge.textContent = val + 's';
-    else if (badgeId === 'thinkTimeVal') badge.textContent = val + 'ms';
-    else if (badgeId === 'pacingVal') badge.textContent = val + 'ms';
-    else badge.textContent = val;
+// Stats Range Sliders <-> Input Sync
+function syncSliderToInput(sliderId, inputId, unit) {
+    const slider = document.getElementById(sliderId);
+    const input = document.getElementById(inputId);
+    if (slider && input) input.value = slider.value;
+}
+
+function syncInputToSlider(sliderId, val) {
+    const slider = document.getElementById(sliderId);
+    if (!slider) return;
+    const num = parseInt(val, 10);
+    if (isNaN(num)) return;
+    const clamped = Math.max(parseInt(slider.min, 10), Math.min(parseInt(slider.max, 10), num));
+    slider.value = clamped;
 }
 
 // Tab switcher
