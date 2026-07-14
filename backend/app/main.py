@@ -52,11 +52,19 @@ def root():
 
 @app.get("/index.css")
 def frontend_css():
-    return FileResponse(os.path.join(frontend_dir, "index.css"), media_type="text/css")
+    return FileResponse(
+        os.path.join(frontend_dir, "index.css"),
+        media_type="text/css",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"},
+    )
 
 @app.get("/index.js")
 def frontend_js():
-    return FileResponse(os.path.join(frontend_dir, "index.js"), media_type="application/javascript")
+    return FileResponse(
+        os.path.join(frontend_dir, "index.js"),
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"},
+    )
 
 @app.get("/health")
 def health():
