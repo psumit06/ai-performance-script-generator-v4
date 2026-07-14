@@ -37,7 +37,8 @@ def upload_to_github(request: GitHubUploadRequest):
 
     # Use owner/subfolder from env if not explicitly provided in request
     owner = request.owner_override or os.getenv("GITHUB_UPLOAD_OWNER", "") or None
-    subfolder = request.subfolder or os.getenv("GITHUB_UPLOAD_PATH", "automated-usecases")
+    base_path = os.getenv("GITHUB_UPLOAD_PATH", "automated-usecases")
+    subfolder = f"{base_path}/{request.subfolder.strip('/')}" if request.subfolder else base_path
 
     try:
         result = upload_jmx_to_github(
