@@ -1,9 +1,9 @@
-// Transaction Marker - Background Service Worker
-// Adds custom headers to requests when recording is active.
+// Transaction Marker - Background Service Worker (MV3)
+// Uses declarativeNetRequest to add headers dynamically.
 
+const RULE_ID = 1;
 const TX_HEADER = "x-transaction-name";
 const TX_START_HEADER = "x-transaction-start";
-const TX_END_HEADER = "x-transaction-end";
 
 let isActive = false;
 let currentTransaction = "";
@@ -11,48 +11,65 @@ let currentTransaction = "";
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "START_TRANSACTION") {
-    isActive = true;
     currentTransaction = message.name || "Unnamed";
-    sendResponse({ ok: true, transaction: currentTransaction });
+    isActive = true;
+    _addRule(currentTransaction).then(() => {
+      sendResponse({ ok: true, transaction: currentTransaction });
+    });
+    return true;
   } else if (message.type === "STOP_TRANSACTION") {
     isActive = false;
     currentTransaction = "";
-    sendResponse({ ok: true });
+    _removeRule().then(() => {
+      sendResponse({ ok: true });
+    });
+    return true;
   } else if (message.type === "GET_STATUS") {
     sendResponse({ active: isActive, transaction: currentTransaction });
   }
-  return true;
 });
 
-// Modify headers on outgoing requests when active
-chrome.webRequest.onBeforeSendHeaders.addListener(
-  (details) => {
-    if (!isActive || !currentTransaction) return { requestHeaders: details.requestHeaders };
+async function _addRule(txName) {
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [RULE_ID],
+    addRules: [
+      {
+        id: RULE_ID,
+        priority: 1,
+        action: {
+          type: "modifyHeaders",
+          requestHeaders: [
+            { header: TX_HEADER, operation: "set", value: txName },
+            { header: TX_START_HEADER, operation: "set", value: "true" },
+          ],
+        },
+        condition: {
+          urlFilter: "*",
+          resourceTypes: [
+            "main_frame",
+            "sub_frame",
+            "stylesheet",
+            "script",
+            "image",
+            "font",
+            "object",
+            "xmlhttprequest",
+            "ping",
+            "csp_report",
+            "media",
+            "websocket",
+            "other",
+          ],
+        },
+      },
+    ],
+  });
+  console.log(`[TransactionMarker] Rule added: ${txName}`);
+}
 
-    const headers = details.requestHeaders || [];
-
-    // Add or update transaction name header
-    const txIdx = headers.findIndex(
-      (h) => h.name.toLowerCase() === TX_HEADER
-    );
-    if (txIdx >= 0) {
-      headers[txIdx].value = currentTransaction;
-    } else {
-      headers.push({ name: TX_HEADER, value: currentTransaction });
-    }
-
-    // Mark transaction start on first request
-    const startIdx = headers.findIndex(
-      (h) => h.name.toLowerCase() === TX_START_HEADER
-    );
-    if (startIdx >= 0) {
-      headers[startIdx].value = "true";
-    } else {
-      headers.push({ name: TX_START_HEADER, value: "true" });
-    }
-
-    return { requestHeaders: headers };
-  },
-  { urls: ["<all_urls>"] },
-  ["blocking", "requestHeaders"]
-);
+async function _removeRule() {
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [RULE_ID],
+  });
+  console.log("[TransactionMarker] Rule removed.");
+}

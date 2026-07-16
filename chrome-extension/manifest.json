@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "description": "Marks HTTP requests with transaction names for HAR recording. Used by AI Performance Script Generator.",
   "permissions": [
-    "webRequest",
     "storage",
-    "activeTab"
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback"
   ],
   "host_permissions": [
     "<all_urls>"

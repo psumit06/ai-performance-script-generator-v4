@@ -25,10 +25,13 @@ startBtn.addEventListener("click", () => {
     txNameInput.focus();
     return;
   }
+  startBtn.disabled = true;
+  startBtn.textContent = "Starting...";
   chrome.runtime.sendMessage({ type: "START_TRANSACTION", name }, (res) => {
-    if (res.ok) {
+    startBtn.disabled = false;
+    startBtn.textContent = "Start Transaction";
+    if (res && res.ok) {
       updateUI(true, name);
-      // Append to storage
       chrome.storage.local.get(["transactions"], (data) => {
         const list = data.transactions || [];
         list.push({ name, timestamp: new Date().toISOString() });
@@ -40,12 +43,20 @@ startBtn.addEventListener("click", () => {
 });
 
 stopBtn.addEventListener("click", () => {
+  stopBtn.disabled = true;
+  stopBtn.textContent = "Stopping...";
   chrome.runtime.sendMessage({ type: "STOP_TRANSACTION" }, (res) => {
-    if (res.ok) {
+    stopBtn.disabled = false;
+    stopBtn.textContent = "Stop Transaction";
+    if (res && res.ok) {
       updateUI(false, "");
       txNameInput.value = "";
     }
   });
+});
+
+txNameInput.addEventListener("focus", () => {
+  txNameInput.style.borderColor = "";
 });
 
 clearBtn.addEventListener("click", () => {
