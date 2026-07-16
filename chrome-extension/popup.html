@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 16px;
+    }
+    h1 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #00f2fe;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+    }
+    .status-dot.active {
+      background: #39ff14;
+      box-shadow: 0 0 6px #39ff14;
+    }
+    .field {
+      margin-bottom: 12px;
+    }
+    .field label {
+      display: block;
+      font-size: 11px;
+      color: #a6a2bf;
+      margin-bottom: 4px;
+    }
+    .field input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      color: #e0e0e0;
+      font-size: 13px;
+      outline: none;
+    }
+    .field input:focus {
+      border-color: #00f2fe;
+    }
+    .field input:disabled {
+      opacity: 0.4;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-start {
+      background: linear-gradient(135deg, #00f2fe, #9d4edd);
+      color: #fff;
+    }
+    .btn-start:hover { opacity: 0.9; }
+    .btn-stop {
+      background: #ff3366;
+      color: #fff;
+    }
+    .btn-stop:hover { opacity: 0.9; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .hint {
+      font-size: 10px;
+      color: #666;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+    .transactions {
+      margin-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 8px;
+    }
+    .transactions h2 {
+      font-size: 11px;
+      color: #a6a2bf;
+      margin-bottom: 6px;
+    }
+    .tx-list {
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 11px;
+    }
+    .tx-item {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      justify-content: space-between;
+    }
+    .tx-name { color: #00f2fe; }
+    .tx-clear {
+      font-size: 10px;
+      color: #ff3366;
+      cursor: pointer;
+      margin-top: 6px;
+      text-align: right;
+    }
+    .tx-clear:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Transaction Marker</h1>
+
+  <div class="status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Inactive</span>
+  </div>
+
+  <div class="field">
+    <label for="txName">Transaction Name</label>
+    <input type="text" id="txName" placeholder="e.g. 01_Login, 02_Search">
+  </div>
+
+  <button class="btn btn-start" id="startBtn">Start Transaction</button>
+  <button class="btn btn-stop" id="stopBtn" style="display:none;">Stop Transaction</button>
+
+  <div class="hint">
+    Start a transaction before performing user actions.
+    All HTTP requests will be tagged with the transaction name.
+    Export HAR from DevTools Network tab after stopping.
+  </div>
+
+  <div class="transactions">
+    <h2>Recorded Transactions</h2>
+    <div class="tx-list" id="txList"></div>
+    <div class="tx-clear" id="clearBtn">Clear All</div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
