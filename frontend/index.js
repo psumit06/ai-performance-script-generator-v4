@@ -1380,6 +1380,9 @@ uploadToGithubBtn.addEventListener('click', async () => {
 
         if (result.success) {
             logTerminal(`[GitHub] Successfully uploaded to ${result.owner}/${result.repo}:`, 'success');
+            (result.backups || []).forEach(b => {
+                logTerminal(`   Backup: ${b.original} -> ${b.backup}`, 'highlight');
+            });
             (result.uploaded || []).forEach(f => {
                 logTerminal(`   -> ${f.file}`, 'success');
             });
