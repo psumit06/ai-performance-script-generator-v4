@@ -1,6 +1,7 @@
 import os
 import base64
 import requests
+from datetime import datetime
 from typing import Optional
 
 GITHUB_API = "https://api.github.com"
@@ -48,6 +49,70 @@ def get_file_sha(owner: str, repo: str, path: str, token: Optional[str] = None) 
     if resp.status_code == 200:
         return resp.json().get("sha")
     return None
+
+
+def get_file_content(owner: str, repo: str, path: str, token: Optional[str] = None) -> Optional[str]:
+    """Get the decoded content of an existing file. Returns None if not found."""
+    headers = _headers(token)
+    resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}/contents/{path}", headers=headers, timeout=10)
+    if resp.status_code == 200:
+        data = resp.json()
+        return base64.b64decode(data["content"]).decode("utf-8")
+    return None
+
+
+def backup_existing_file(
+    owner: str,
+    repo: str,
+    file_path: str,
+    branch: str = "main",
+    token: Optional[str] = None,
+) -> Optional[str]:
+    """
+    If a file exists at file_path, back it up to _backup/<filename>_<timestamp>.<ext>
+    inside the same directory. Returns the backup path or None if file didn't exist.
+    """
+    sha = get_file_sha(owner, repo, file_path, token)
+    if not sha:
+        return None
+
+    content = get_file_content(owner, repo, file_path, token)
+    if content is None:
+        return None
+
+    # Build backup path: same directory + _backup/ + filename_timestamp.ext
+    dir_part = ""
+    if "/" in file_path:
+        dir_part = "/".join(file_path.split("/")[:-1])
+
+    base_name = file_path.split("/")[-1]
+    name_part, ext_part = os.path.splitext(base_name)
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    backup_name = f"{name_part}_{timestamp}{ext_part}"
+
+    backup_path = f"{dir_part}/_backup/{backup_name}" if dir_part else f"_backup/{backup_name}"
+
+    msg = f"Backup existing {base_name} before overwrite"
+    headers = _headers(token)
+    body = {
+        "message": msg,
+        "content": base64.b64encode(content.encode("utf-8")).decode("utf-8"),
+        "branch": branch,
+    }
+
+    resp = requests.put(
+        f"{GITHUB_API}/repos/{owner}/{repo}/contents/{backup_path}",
+        headers=headers,
+        json=body,
+        timeout=30,
+    )
+
+    if resp.status_code in (200, 201):
+        print(f"[GitHub Upload] Backed up {file_path} -> {backup_path}")
+        return backup_path
+    else:
+        print(f"[GitHub Upload] Backup failed for {file_path}: {resp.status_code} {resp.text[:200]}")
+        return None
 
 
 def upload_file(
@@ -131,6 +196,7 @@ def upload_jmx_to_github(
 
     results = []
     errors = []
+    backups = []
 
     # Build path with optional subfolder prefix
     prefix = f"{subfolder.strip('/')}/" if subfolder else ""
@@ -139,6 +205,11 @@ def upload_jmx_to_github(
     jmx_path = f"{prefix}{jmx_filename}"
     msg = commit_message or f"Upload {jmx_filename} via AI Performance Script Generator"
     try:
+        # Backup existing file before overwriting
+        backup_path = backup_existing_file(owner, repo_name, jmx_path, branch, token)
+        if backup_path:
+            backups.append({"original": jmx_path, "backup": backup_path})
+
         print(f"[GitHub Upload] Uploading {jmx_path} ({len(jmx_content)} bytes)...")
         result = upload_file(owner, repo_name, jmx_path, jmx_content, msg, branch, token)
         url = result.get("content", {}).get("html_url", "")
@@ -154,6 +225,11 @@ def upload_jmx_to_github(
             data_path = f"{prefix}data/{filename}"
             data_msg = f"Upload data file {filename} via AI Performance Script Generator"
             try:
+                # Backup existing file before overwriting
+                backup_path = backup_existing_file(owner, repo_name, data_path, branch, token)
+                if backup_path:
+                    backups.append({"original": data_path, "backup": backup_path})
+
                 result = upload_file(owner, repo_name, data_path, content, data_msg, branch, token)
                 results.append({"file": data_path, "url": result.get("content", {}).get("html_url", "")})
             except Exception as e:
@@ -165,6 +241,7 @@ def upload_jmx_to_github(
         "repo": repo_name,
         "branch": branch,
         "uploaded": results,
+        "backups": backups,
         "errors": errors,
     }
 
