@@ -191,11 +191,36 @@ svg[data-lucide] {
 .control-panel {
     min-height: 0;
     overflow-y: auto;
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.3s;
+    gap: 14px !important;
+}
+
+.control-panel:hover {
+    scrollbar-color: rgba(0, 242, 254, 0.3) transparent;
 }
 
 .control-panel::-webkit-scrollbar {
-    display: none;
+    width: 6px;
+}
+
+.control-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.control-panel::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+.control-panel:hover::-webkit-scrollbar-thumb {
+    background: rgba(0, 242, 254, 0.3);
+}
+
+.control-panel:hover::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 242, 254, 0.5);
 }
 
 .flex {
@@ -232,19 +257,19 @@ svg[data-lucide] {
 
 /* Section Cards styling */
 .section-card {
-    padding: 16px;
+    padding: 14px;
 }
 
 .section-title {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     display: flex;
     align-items: center;
     gap: 8px;
     color: var(--neon-blue);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    padding-bottom: 8px;
+    padding-bottom: 6px;
 }
 
 .section-title i {
@@ -722,7 +747,7 @@ svg[data-lucide] {
 
 /* Slider Controls */
 .form-group {
-    margin-bottom: 14px;
+    margin-bottom: 10px;
 }
 
 .form-group label {
@@ -898,9 +923,9 @@ svg[data-lucide] {
     background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
     border: none;
     color: white;
-    padding: 14px 24px;
+    padding: 12px 20px;
     border-radius: 12px;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 700;
     cursor: pointer;
     display: flex;
@@ -908,7 +933,7 @@ svg[data-lucide] {
     align-items: center;
     gap: 10px;
     width: 100%;
-    margin-top: 10px;
+    margin-top: 8px;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(157, 78, 221, 0.2);
 }
@@ -971,13 +996,13 @@ svg[data-lucide] {
 .download-jmx-main {
     justify-content: center;
     width: 100%;
-    margin-top: 12px;
+    margin-top: 8px;
 }
 
 /* GitHub Upload Group */
 .github-upload-group {
-    margin-top: 12px;
-    padding: 12px;
+    margin-top: 8px;
+    padding: 10px;
     border: 1px solid rgba(139, 92, 246, 0.2);
     border-radius: 10px;
     background: rgba(139, 92, 246, 0.05);
