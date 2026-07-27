@@ -385,10 +385,18 @@ async def generate_from_file(
                         yield f"event: log\ndata: {json.dumps({'log_type': item['log_type'], 'message': item['message']})}\n\n"
                     elif item["type"] == "result":
                         healing_result = item["data"]
+                        # Determine output filename: OUTPUT_FILE_NAME env var > input filename
+                        env_output_name = os.getenv("OUTPUT_FILE_NAME", "").strip()
+                        if env_output_name:
+                            output_jmx_name = f"{env_output_name}.jmx"
+                        else:
+                            base_name = file.filename.rsplit(".", 1)[0] if file.filename else "generated_test_plan"
+                            output_jmx_name = f"{base_name}_generated.jmx"
                         # Build the final response payload
                         response_data = {
                             "success": healing_result["success"],
                             "filename": file.filename,
+                            "output_filename": output_jmx_name,
                             "success_rate": healing_result["report"]["success_rate"],
                             "total_requests": healing_result["report"]["total_requests"],
                             "failed_requests": healing_result["report"]["failed_requests"],
