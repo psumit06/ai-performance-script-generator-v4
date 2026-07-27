@@ -9,6 +9,7 @@ let groovySamplerTags = [];
 let functionalParamCandidates = [];
 let functionalParamReviewed = false;
 let generatedJmxContent = null;
+let generatedJmxFilename = null;
 let currentTab = 'dagTab';
 let llmProviderStatus = null;
 
@@ -669,6 +670,7 @@ function handleFileSelect(file) {
     downloadBtn.disabled = true;
     downloadBtnMain.disabled = true;
     generatedJmxContent = null;
+    generatedJmxFilename = null;
     
     logTerminal(`[System] Ingested file: ${file.name} (${formatBytes(file.size)}). Ready for analysis.`, 'system');
 
@@ -855,6 +857,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     document.getElementById('dagNodes').innerHTML = '';
     document.getElementById('codeBlock').textContent = '';
     generatedJmxContent = null;
+    generatedJmxFilename = null;
 
     // Move to logs tab
     switchTab('logsTab');
@@ -1106,6 +1109,10 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
         // 5. Load Code Tab
         generatedJmxContent = data.jmx_content;
+        generatedJmxFilename = data.output_filename || null;
+        if (data.output_filename) {
+            document.getElementById('codeFileName').textContent = data.output_filename;
+        }
         if (data.execution_profile) {
             const ep = data.execution_profile;
             logTerminal(`[JMX Profile] Applied users=${ep.users}, ramp_up=${ep.ramp_up}s, duration=${ep.duration}s, think_time=${ep.think_time}ms, pacing=${ep.pacing}ms.`, 'success');
@@ -1139,7 +1146,7 @@ function downloadGeneratedJmx() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, "") + "_generated.jmx" : "generated_test_plan.jmx";
+    a.download = generatedJmxFilename || "generated_test_plan.jmx";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1364,7 +1371,7 @@ uploadToGithubBtn.addEventListener('click', async () => {
                 repo_name: 'dss-pe-jmeter',
                 subfolder: repoName,
                 jmx_content: generatedJmxContent,
-                jmx_filename: selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, "") + "_generated.jmx" : "generated_test_plan.jmx",
+                jmx_filename: generatedJmxFilename || "generated_test_plan.jmx",
                 csv_files: csvFilesDict,
             })
         });
