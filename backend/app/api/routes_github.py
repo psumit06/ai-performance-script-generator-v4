@@ -25,7 +25,7 @@ def upload_to_github(request: GitHubUploadRequest):
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     load_dotenv(os.path.join(backend_dir, ".env"), override=True)
 
-    token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("REPO_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "") or os.getenv("MODEL_TOKEN", "")
+    token = os.getenv("REPO_UPLOAD_TOKEN", "") or os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("MODEL_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
     if not token:
         raise HTTPException(
             status_code=400,
@@ -64,7 +64,7 @@ def list_repos():
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     load_dotenv(os.path.join(backend_dir, ".env"), override=True)
 
-    token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("REPO_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "") or os.getenv("MODEL_TOKEN", "")
+    token = os.getenv("REPO_UPLOAD_TOKEN", "") or os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("MODEL_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
     if not token:
         raise HTTPException(
             status_code=400,
