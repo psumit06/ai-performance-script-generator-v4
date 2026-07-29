@@ -12,8 +12,11 @@ def _get_token():
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     env_path = os.path.join(backend_dir, ".env")
     load_dotenv(env_path, override=True)
-    # Prefer the dedicated upload token, fall back to GITHUB_TOKEN
-    return os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
+    # GitHub Upload token: prefer GITHUB_UPLOAD_TOKEN, fallback to REPO_UPLOAD_TOKEN (GitHub Actions secret)
+    upload_token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("REPO_UPLOAD_TOKEN", "")
+    # General GitHub token: prefer GITHUB_TOKEN, fallback to MODEL_TOKEN (GitHub Actions secret)
+    general_token = os.getenv("GITHUB_TOKEN", "") or os.getenv("MODEL_TOKEN", "")
+    return upload_token or general_token
 
 
 def _headers(token: Optional[str] = None):
@@ -320,7 +323,7 @@ def auto_upload_generated_files(
         print("[GitHub Auto-Upload] ERROR: No GitHub token available")
         return {
             "success": False,
-            "error": "GitHub token is not configured. Add GITHUB_UPLOAD_TOKEN to backend/.env",
+            "error": "GitHub token is not configured. Add GITHUB_UPLOAD_TOKEN or REPO_UPLOAD_TOKEN to backend/.env or GitHub Actions secrets.",
             "uploaded": [],
             "errors": [],
         }
