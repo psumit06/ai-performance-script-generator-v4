@@ -97,7 +97,7 @@ def is_llm_available(provider=None):
     if provider_name == "groq":
         return bool(OpenAI and os.getenv("GROQ_API_KEY"))
     if provider_name == "github":
-        return bool(OpenAI and (os.getenv("GITHUB_TOKEN") or os.getenv("MODEL_TOKEN")))
+        return bool(OpenAI and (os.getenv("MODEL_TOKEN") or os.getenv("GITHUB_TOKEN")))
     return False
 
 
@@ -117,7 +117,7 @@ def generate_text(prompt, provider=None, model=None, temperature=0.1):
     if provider_name == "groq":
         return generate_with_openai(prompt, model_name, os.getenv("GROQ_API_KEY"), os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"), temperature)
     if provider_name == "github":
-        return generate_with_openai(prompt, model_name, os.getenv("GITHUB_TOKEN") or os.getenv("MODEL_TOKEN"), os.getenv("GITHUB_MODELS_BASE_URL", "https://models.github.ai/inference"), temperature)
+        return generate_with_openai(prompt, model_name, os.getenv("MODEL_TOKEN") or os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_MODELS_BASE_URL", "https://models.github.ai/inference"), temperature)
 
     raise RuntimeError(f"Unsupported LLM provider: {provider_name}")
 

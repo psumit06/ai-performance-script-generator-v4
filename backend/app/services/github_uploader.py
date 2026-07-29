@@ -12,10 +12,10 @@ def _get_token():
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     env_path = os.path.join(backend_dir, ".env")
     load_dotenv(env_path, override=True)
-    # GitHub Upload token: prefer GITHUB_UPLOAD_TOKEN, fallback to REPO_UPLOAD_TOKEN (GitHub Actions secret)
-    upload_token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("REPO_UPLOAD_TOKEN", "")
-    # General GitHub token: prefer GITHUB_TOKEN, fallback to MODEL_TOKEN (GitHub Actions secret)
-    general_token = os.getenv("GITHUB_TOKEN", "") or os.getenv("MODEL_TOKEN", "")
+    # GitHub Upload token: prefer REPO_UPLOAD_TOKEN (GitHub Actions), fallback to GITHUB_UPLOAD_TOKEN
+    upload_token = os.getenv("REPO_UPLOAD_TOKEN", "") or os.getenv("GITHUB_UPLOAD_TOKEN", "")
+    # General GitHub token: prefer MODEL_TOKEN (GitHub Actions), fallback to GITHUB_TOKEN
+    general_token = os.getenv("MODEL_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
     return upload_token or general_token
 
 
