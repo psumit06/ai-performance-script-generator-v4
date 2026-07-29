@@ -25,13 +25,13 @@ def upload_to_github(request: GitHubUploadRequest):
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     load_dotenv(os.path.join(backend_dir, ".env"), override=True)
 
-    token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
+    token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("REPO_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "") or os.getenv("MODEL_TOKEN", "")
     if not token:
         raise HTTPException(
             status_code=400,
             detail={
                 "code": "GITHUB_TOKEN_NOT_CONFIGURED",
-                "message": "GitHub token is not configured. Add GITHUB_UPLOAD_TOKEN to backend/.env",
+                "message": "GitHub token is not configured. Add GITHUB_UPLOAD_TOKEN or REPO_UPLOAD_TOKEN to backend/.env or GitHub Actions secrets.",
             },
         )
 
@@ -64,11 +64,11 @@ def list_repos():
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     load_dotenv(os.path.join(backend_dir, ".env"), override=True)
 
-    token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
+    token = os.getenv("GITHUB_UPLOAD_TOKEN", "") or os.getenv("REPO_UPLOAD_TOKEN", "") or os.getenv("GITHUB_TOKEN", "") or os.getenv("MODEL_TOKEN", "")
     if not token:
         raise HTTPException(
             status_code=400,
-            detail="GitHub token not configured.",
+            detail="GitHub token not configured. Add GITHUB_UPLOAD_TOKEN or REPO_UPLOAD_TOKEN to backend/.env or GitHub Actions secrets.",
         )
 
     try:
