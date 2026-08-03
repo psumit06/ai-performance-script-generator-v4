@@ -10,6 +10,7 @@ let functionalParamCandidates = [];
 let functionalParamReviewed = false;
 let generatedJmxContent = null;
 let generatedJmxFilename = null;
+let advancedOptionsEnabled = false;
 let currentTab = 'dagTab';
 let llmProviderStatus = null;
 
@@ -1110,6 +1111,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
         // 5. Load Code Tab
         generatedJmxContent = data.jmx_content;
         generatedJmxFilename = data.output_filename || null;
+        advancedOptionsEnabled = data.advanced_options_enabled || false;
         if (data.output_filename) {
             document.getElementById('codeFileName').textContent = data.output_filename;
         }
@@ -1331,6 +1333,11 @@ const uploadToGithubBtn = document.getElementById('uploadToGithubBtn');
 function showGithubUpload() {
     githubUploadGroup.style.display = 'block';
     uploadToGithubBtn.disabled = false;
+    // Show advanced options if flag is enabled
+    const advGroup = document.getElementById('advancedOptionsGroup');
+    if (advGroup) {
+        advGroup.style.display = advancedOptionsEnabled ? 'block' : 'none';
+    }
     lucide.createIcons();
 }
 
@@ -1364,6 +1371,25 @@ uploadToGithubBtn.addEventListener('click', async () => {
     }
 
     try {
+        // Collect execution profile values
+        const executionProfile = {
+            users: parseInt(document.getElementById('users').value) || 50,
+            ramp_up: parseInt(document.getElementById('rampUp').value) || 60,
+            duration: parseInt(document.getElementById('duration').value) || 300,
+            think_time: parseInt(document.getElementById('thinkTime').value) || 1500,
+            pacing: parseInt(document.getElementById('pacing').value) || 0,
+        };
+
+        // Collect advanced options if enabled
+        let advancedOptions = null;
+        if (advancedOptionsEnabled) {
+            advancedOptions = {
+                num_slaves: parseInt(document.getElementById('numSlaves').value) || 1,
+                write_to_db: document.querySelector('input[name="writeToDb"]:checked')?.value === 'true',
+                start_immediately: document.querySelector('input[name="startImmediately"]:checked')?.value === 'true',
+            };
+        }
+
         const response = await fetch('/api/github/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1373,6 +1399,8 @@ uploadToGithubBtn.addEventListener('click', async () => {
                 jmx_content: generatedJmxContent,
                 jmx_filename: generatedJmxFilename || "generated_test_plan.jmx",
                 csv_files: csvFilesDict,
+                execution_profile: executionProfile,
+                advanced_options: advancedOptions,
             })
         });
 
@@ -1393,6 +1421,9 @@ uploadToGithubBtn.addEventListener('click', async () => {
             (result.uploaded || []).forEach(f => {
                 logTerminal(`   -> ${f.file}`, 'success');
             });
+            if (result.config_uploaded) {
+                logTerminal(`   -> ${result.config_path} (config.yml)`, 'success');
+            }
         } else {
             logTerminal(`[GitHub] Upload completed with errors:`, 'error');
             if (result.error) {

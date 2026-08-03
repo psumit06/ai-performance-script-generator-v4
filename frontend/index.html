@@ -227,6 +227,28 @@
                         <i data-lucide="download"></i>
                         <span>Download JMX Script</span>
                     </button>
+                    <!-- Advanced Deployment Options (conditionally shown) -->
+                    <div class="advanced-options-group" id="advancedOptionsGroup" style="display:none;">
+                        <div class="section-title" style="font-size:0.8rem; margin-bottom:8px;"><i data-lucide="settings"></i> Deployment Options</div>
+                        <div class="form-group" style="margin-bottom:8px;">
+                            <label for="numSlaves"><i data-lucide="server"></i> Number of Slaves</label>
+                            <input type="number" id="numSlaves" class="slider-input" value="1" min="1" max="100" style="width:100%; text-align:left;">
+                        </div>
+                        <div class="form-group" style="margin-bottom:8px;">
+                            <label><i data-lucide="database"></i> Write to Database</label>
+                            <div class="radio-group">
+                                <label class="radio-label"><input type="radio" name="writeToDb" value="true"> Yes</label>
+                                <label class="radio-label"><input type="radio" name="writeToDb" value="false" checked> No</label>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:8px;">
+                            <label><i data-lucide="play"></i> Start Immediately</label>
+                            <div class="radio-group">
+                                <label class="radio-label"><input type="radio" name="startImmediately" value="true" checked> Yes</label>
+                                <label class="radio-label"><input type="radio" name="startImmediately" value="false"> No</label>
+                            </div>
+                        </div>
+                    </div>
                     <div class="github-upload-group" id="githubUploadGroup" style="display:none;">
                         <div class="form-group" style="margin-bottom:8px;">
                             <label for="githubRepoName"><i data-lucide="github"></i> Use Case Name</label>

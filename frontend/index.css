@@ -1008,6 +1008,15 @@ svg[data-lucide] {
     background: rgba(139, 92, 246, 0.05);
 }
 
+/* Advanced Deployment Options Group */
+.advanced-options-group {
+    margin-top: 8px;
+    padding: 12px;
+    border: 1px solid rgba(0, 242, 254, 0.15);
+    border-radius: 10px;
+    background: rgba(0, 242, 254, 0.03);
+}
+
 .github-upload-group .input-field {
     width: 100%;
     padding: 8px 12px;
