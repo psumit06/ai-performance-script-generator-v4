@@ -427,6 +427,7 @@ async def generate_from_file(
                                 "think_time": think_time,
                                 "pacing": pacing
                             },
+                            "advanced_options_enabled": os.getenv("ADVANCED_OPTIONS", "false").lower() == "true",
                             "csv_files": [
                                 {
                                     "filename": csv["filename"],
