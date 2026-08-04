@@ -125,6 +125,29 @@ def llm_providers():
     }
 
 
+@router.get("/llm-test")
+def llm_test(provider: str = None, model: str = None):
+    """Test an LLM provider with a minimal call and return status."""
+    from app.services.llm_provider import generate_text, get_llm_config
+    try:
+        config = get_llm_config(provider=provider, model=model)
+        result = generate_text("Reply with only the word OK.", provider=provider, model=model, temperature=0)
+        return {
+            "status": "ok",
+            "provider": config["provider"],
+            "model": config["model"],
+            "response": result[:50],
+        }
+    except Exception as e:
+        config = get_llm_config(provider=provider, model=model)
+        return {
+            "status": "error",
+            "provider": config["provider"],
+            "model": config["model"],
+            "error": str(e),
+        }
+
+
 @router.post("/analyze-parameterization")
 async def analyze_parameterization(
     file: UploadFile = File(...),
