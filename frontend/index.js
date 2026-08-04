@@ -645,13 +645,13 @@ async function testSelectedProvider() {
             if (statusText) statusText.textContent = 'LLM Ready';
             if (statusDot) { statusDot.className = 'status-dot online'; statusDot.style.backgroundColor = ''; }
         } else {
-            if (statusText) statusText.textContent = 'LLM Error';
-            if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--neon-red)'; }
+            if (statusText) statusText.textContent = 'LLM Unavailable - Deterministic mode';
+            if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--neon-yellow)'; }
             console.warn(`LLM test failed: ${result.error}`);
         }
     } catch (err) {
-        if (statusText) statusText.textContent = 'LLM Unreachable';
-        if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--neon-red)'; }
+        if (statusText) statusText.textContent = 'LLM Unavailable - Deterministic mode';
+        if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--neon-yellow)'; }
         console.warn(`LLM test error: ${err.message}`);
     }
 }
