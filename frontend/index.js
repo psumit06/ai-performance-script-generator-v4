@@ -558,6 +558,10 @@ function initAiToggle() {
         const enabled = aiEnabled.checked;
         llmProvider.disabled = !enabled;
         llmModel.disabled = !enabled;
+        // Test provider when AI toggle changes
+        if (typeof testSelectedProvider === 'function') {
+            testSelectedProvider();
+        }
     }
 
     aiEnabled.addEventListener('change', syncAiControls);
@@ -570,15 +574,12 @@ async function loadLlmProviderStatus() {
         const data = await response.json();
         llmProviderStatus = data;
         const statusText = document.querySelector('.status-text');
+        const statusDot = document.querySelector('.status-dot');
         const providerSelect = document.getElementById('llmProvider');
         const modelInput = document.getElementById('llmModel');
         const defaultOption = providerSelect.querySelector('option[value=""]');
         const defaultHint = document.getElementById('llmDefaultHint');
-        const configured = data.providers.filter(p => p.configured).length;
         const activeLabel = providerLabels[data.active_provider] || data.active_provider || 'Environment Default';
-        statusText.textContent = configured > 0
-            ? 'LLM Ready'
-            : 'Deterministic Core Ready';
         if (defaultOption) {
             defaultOption.textContent = `Environment Default (${activeLabel})`;
         }
@@ -591,14 +592,67 @@ async function loadLlmProviderStatus() {
         if (defaultHint) {
             defaultHint.textContent = `Default: ${activeLabel}${data.active_model ? ` / ${data.active_model}` : ''}`;
         }
-        document.getElementById('llmProvider').addEventListener('change', validateSelectedProvider);
-        validateSelectedProvider();
+        document.getElementById('llmProvider').addEventListener('change', () => testSelectedProvider());
+        // Test the default provider on load
+        testSelectedProvider();
     } catch (err) {
         console.warn('Unable to load LLM provider status', err);
+        const statusText = document.querySelector('.status-text');
+        const statusDot = document.querySelector('.status-dot');
+        if (statusText) statusText.textContent = 'Server Offline';
+        if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--neon-red)'; }
         const defaultHint = document.getElementById('llmDefaultHint');
         if (defaultHint) {
             defaultHint.textContent = 'Default provider unavailable. Check backend connection.';
         }
+    }
+}
+
+async function testSelectedProvider() {
+    const statusText = document.querySelector('.status-text');
+    const statusDot = document.querySelector('.status-dot');
+    const providerSelect = document.getElementById('llmProvider');
+    const aiEnabled = document.getElementById('aiEnabled').checked;
+    const selectedProvider = providerSelect.value;
+
+    if (!aiEnabled) {
+        if (statusText) statusText.textContent = 'AI Disabled';
+        if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--text-muted)'; }
+        return;
+    }
+
+    if (!selectedProvider) {
+        if (statusText) statusText.textContent = 'No Provider Selected';
+        if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--neon-yellow)'; }
+        return;
+    }
+
+    // Show testing state
+    if (statusText) statusText.textContent = 'Testing LLM...';
+    if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--neon-yellow)'; }
+
+    try {
+        const modelInput = document.getElementById('llmModel');
+        const modelOverride = modelInput ? modelInput.value.trim() : '';
+        const params = new URLSearchParams();
+        params.set('provider', selectedProvider);
+        if (modelOverride) params.set('model', modelOverride);
+
+        const response = await fetch(`/api/llm-test?${params.toString()}`);
+        const result = await response.json();
+
+        if (result.status === 'ok') {
+            if (statusText) statusText.textContent = 'LLM Ready';
+            if (statusDot) { statusDot.className = 'status-dot online'; statusDot.style.backgroundColor = ''; }
+        } else {
+            if (statusText) statusText.textContent = 'LLM Error';
+            if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--neon-red)'; }
+            console.warn(`LLM test failed: ${result.error}`);
+        }
+    } catch (err) {
+        if (statusText) statusText.textContent = 'LLM Unreachable';
+        if (statusDot) { statusDot.className = 'status-dot'; statusDot.style.backgroundColor = 'var(--neon-red)'; }
+        console.warn(`LLM test error: ${err.message}`);
     }
 }
 
@@ -613,26 +667,6 @@ function showUserAlert(message) {
         console.warn('Browser alert was blocked or unavailable', err);
     }
     logTerminal(`[Configuration Alert] ${message}`, 'error');
-}
-
-function validateSelectedProvider() {
-    const aiEnabled = document.getElementById('aiEnabled').checked;
-    const providerSelect = document.getElementById('llmProvider');
-    const selectedProvider = providerSelect.value;
-    const alertBox = document.getElementById('appAlert');
-
-    if (!aiEnabled || !selectedProvider || !llmProviderStatus) {
-        return true;
-    }
-
-    const selected = llmProviderStatus.providers.find(p => p.name === selectedProvider);
-    if (selected && !selected.configured) {
-        showUserAlert(`The selected LLM provider '${providerLabels[selectedProvider] || selectedProvider}' is not configured properly. Please select a different LLM provider.`);
-        return false;
-    }
-
-    alertBox.classList.add('hidden');
-    return true;
 }
 
 // Drag and Drop Ingestion
