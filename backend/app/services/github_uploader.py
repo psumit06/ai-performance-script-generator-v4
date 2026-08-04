@@ -12,11 +12,8 @@ def _get_token():
     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     env_path = os.path.join(backend_dir, ".env")
     load_dotenv(env_path, override=True)
-    # GitHub Upload token: prefer REPO_UPLOAD_TOKEN (GitHub Actions), fallback to GITHUB_UPLOAD_TOKEN
-    upload_token = os.getenv("REPO_UPLOAD_TOKEN", "") or os.getenv("GITHUB_UPLOAD_TOKEN", "")
-    # General GitHub token: prefer MODEL_TOKEN (GitHub Actions), fallback to GITHUB_TOKEN
-    general_token = os.getenv("MODEL_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")
-    return upload_token or general_token
+    # GitHub Upload token ONLY - do NOT fall back to LLM tokens
+    return os.getenv("REPO_UPLOAD_TOKEN", "") or os.getenv("GITHUB_UPLOAD_TOKEN", "")
 
 
 def _headers(token: Optional[str] = None):
