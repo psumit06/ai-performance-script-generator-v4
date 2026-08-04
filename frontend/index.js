@@ -20,7 +20,7 @@ const providerLabels = {
     openai: 'OpenAI',
     grok: 'Grok',
     groq: 'Groq',
-    github: 'GitHub Models'
+    azure: 'Azure AI Foundry'
 };
 
 // Initialize Lucide Icons on Load
