@@ -70,6 +70,16 @@ def frontend_js():
 def health():
     return {"status": "all ok"}
 
+@app.get("/api/config")
+def get_config():
+    """Return startup config flags for the frontend."""
+    from dotenv import load_dotenv
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    load_dotenv(os.path.join(backend_dir, ".env"), override=True)
+    return {
+        "ai_enabled_by_default": os.getenv("AI_ENABLED_BY_DEFAULT", "true").lower() == "true",
+    }
+
 @app.get("/favicon.ico")
 def favicon():
     # Return 204 No Content to suppress 404 errors
