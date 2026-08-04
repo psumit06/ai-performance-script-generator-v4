@@ -30,10 +30,26 @@ document.addEventListener('DOMContentLoaded', () => {
     initCsvDragAndDrop();
     initFunctionalParameterization();
     initGroovySetup();
-    initAiToggle();
     initAppAlert();
     loadLlmProviderStatus();
+    loadStartupConfig();
 });
+
+// Fetch startup config from backend and apply settings
+async function loadStartupConfig() {
+    try {
+        const response = await fetch('/api/config');
+        const config = await response.json();
+        const aiCheckbox = document.getElementById('aiEnabled');
+        if (aiCheckbox) {
+            aiCheckbox.checked = config.ai_enabled_by_default;
+            aiCheckbox.dispatchEvent(new Event('change'));
+        }
+    } catch (e) {
+        console.warn('Could not load startup config:', e);
+    }
+    initAiToggle();
+}
 
 function initAppAlert() {
     const closeBtn = document.getElementById('appAlertClose');
