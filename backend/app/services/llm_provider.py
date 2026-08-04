@@ -41,6 +41,7 @@ DEFAULT_MODELS = {
     "grok": "grok-2-latest",
     "groq": "llama-3.3-70b-versatile",
     "github": "openai/gpt-4o-mini",
+    "azure": "gpt-4o-mini",
 }
 
 PROVIDER_ALIASES = {
@@ -49,6 +50,10 @@ PROVIDER_ALIASES = {
     "groqcloud": "groq",
     "github_models": "github",
     "github-models": "github",
+    "azure_ai": "azure",
+    "azure-ai": "azure",
+    "azure_foundry": "azure",
+    "azure-foundry": "azure",
     "off": "none",
     "disabled": "none",
     "deterministic": "none",
@@ -76,6 +81,7 @@ def provider_model_from_env(provider):
         "grok": "GROK_MODEL",
         "groq": "GROQ_MODEL",
         "github": "GITHUB_MODEL",
+        "azure": "AZURE_MODEL",
     }
     return os.getenv(env_names.get(provider, ""))
 
@@ -98,6 +104,8 @@ def is_llm_available(provider=None):
         return bool(OpenAI and os.getenv("GROQ_API_KEY"))
     if provider_name == "github":
         return bool(OpenAI and (os.getenv("MODEL_TOKEN") or os.getenv("GITHUB_TOKEN")))
+    if provider_name == "azure":
+        return bool(OpenAI and os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("AZURE_OPENAI_ENDPOINT"))
     return False
 
 
@@ -118,6 +126,10 @@ def generate_text(prompt, provider=None, model=None, temperature=0.1):
         return generate_with_openai(prompt, model_name, os.getenv("GROQ_API_KEY"), os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1"), temperature)
     if provider_name == "github":
         return generate_with_openai(prompt, model_name, os.getenv("MODEL_TOKEN") or os.getenv("GITHUB_TOKEN"), os.getenv("GITHUB_MODELS_BASE_URL", "https://models.github.ai/inference"), temperature)
+    if provider_name == "azure":
+        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "").rstrip("/")
+        base_url = f"{endpoint}/openai/v1/" if endpoint else None
+        return generate_with_openai(prompt, model_name, os.getenv("AZURE_OPENAI_API_KEY"), base_url, temperature)
 
     raise RuntimeError(f"Unsupported LLM provider: {provider_name}")
 
