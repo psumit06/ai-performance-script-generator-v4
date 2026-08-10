@@ -884,10 +884,6 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     const llmProvider = document.getElementById('llmProvider').value;
     const llmModel = document.getElementById('llmModel').value.trim();
 
-    if (!validateSelectedProvider()) {
-        return;
-    }
-
     // Reset UI state
     generateBtn.disabled = true;
     generateBtn.querySelector('span').textContent = 'Processing Pipeline...';
