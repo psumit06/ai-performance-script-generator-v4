@@ -356,23 +356,46 @@ function getGroovyConfig() {
 
     const textareaVal = document.getElementById('groovyScript').value.trim();
     const fileVal = selectedGroovyFileContent.trim();
-    const script = textareaVal || fileVal;
     const elementType = document.querySelector('input[name="groovyElementType"]:checked')?.value || 'sampler';
     const location = document.getElementById('groovyLocation').value;
     const specificSamplers = groovySamplerTags.slice();
 
-    logTerminal(`[Groovy] getGroovyConfig: textarea_len=${textareaVal.length}, file_val_len=${fileVal.length}, selectedFile=${selectedGroovyFile ? selectedGroovyFile.name : 'none'}, resolved_script_len=${script.length}`, 'system');
+    let script = textareaVal || fileVal;
+    let config = { element_type: elementType, location };
+
+    // If file content is JSON with a "script" field, parse it as config
+    if (!textareaVal && fileVal && selectedGroovyFile && selectedGroovyFile.name.endsWith('.json')) {
+        try {
+            const parsed = JSON.parse(fileVal);
+            if (parsed && typeof parsed.script === 'string') {
+                script = parsed.script;
+                config.element_type = parsed.element_type || elementType;
+                config.location = parsed.location || location;
+                if (Array.isArray(parsed.specific_samplers)) {
+                    config.specific_samplers = parsed.specific_samplers;
+                }
+                logTerminal('[Groovy] Parsed .json file as config format', 'system');
+            }
+        } catch (e) {
+            // Not valid JSON or no script field — treat as raw script
+            logTerminal('[Groovy] .json not in config format, treating as raw script', 'system');
+        }
+    }
+
+    config.script = script;
+
+    logTerminal(`[Groovy] getGroovyConfig: script_len=${script.length}, element_type=${config.element_type}, location=${config.location}`, 'system');
 
     if (!script) {
         logTerminal('[Groovy] Config: script is empty, returning null', 'system');
         return null;
     }
 
-    const config = { script, element_type: elementType, location };
-    if (specificSamplers.length > 0) {
+    if (specificSamplers.length > 0 && !config.specific_samplers) {
         config.specific_samplers = specificSamplers;
     }
-    logTerminal(`[Groovy] Config: returning config with script_len=${script.length}, element_type=${elementType}, location=${location}`, 'success');
+
+    logTerminal(`[Groovy] Config: returning config with script_len=${script.length}, element_type=${config.element_type}, location=${config.location}`, 'success');
     return config;
 }
 
