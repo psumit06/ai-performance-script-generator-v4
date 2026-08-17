@@ -1483,16 +1483,13 @@ uploadToGithubBtn.addEventListener('click', async () => {
         }
 
         if (result.success) {
-            logTerminal(`[GitHub] Successfully uploaded to ${result.owner}/${result.repo}:`, 'success');
+            logTerminal(`[GitHub] Successfully uploaded to ${result.owner}/${result.repo} (${result.commit_mode || 'separate'} commit):`, 'success');
             (result.backups || []).forEach(b => {
                 logTerminal(`   Backup: ${b.original} -> ${b.backup}`, 'highlight');
             });
             (result.uploaded || []).forEach(f => {
                 logTerminal(`   -> ${f.file}`, 'success');
             });
-            if (result.config_uploaded) {
-                logTerminal(`   -> ${result.config_path} (config.yml)`, 'success');
-            }
         } else {
             logTerminal(`[GitHub] Upload completed with errors:`, 'error');
             if (result.error) {
