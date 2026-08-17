@@ -2,7 +2,7 @@ import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
-from app.services.github_uploader import upload_jmx_to_github, upload_file, get_repo_owner
+from app.services.github_uploader import upload_jmx_to_github, get_repo_owner
 
 router = APIRouter()
 
@@ -67,6 +67,14 @@ def upload_to_github(request: GitHubUploadRequest):
     subfolder = f"{base_path}/{request.subfolder.strip('/')}" if request.subfolder else base_path
 
     try:
+        # Build config.yml if execution_profile or advanced_options provided
+        extra_files = None
+        if request.execution_profile or request.advanced_options:
+            config_content = build_config_yml(request.subfolder, request.execution_profile, request.advanced_options)
+            extra_files = {"config.yml": config_content}
+
+        single_commit = os.getenv("GITHUB_UPLOAD_SINGLE_COMMIT", "false").lower() == "true"
+
         result = upload_jmx_to_github(
             repo_name=request.repo_name,
             jmx_content=request.jmx_content,
@@ -77,27 +85,13 @@ def upload_to_github(request: GitHubUploadRequest):
             token=token,
             subfolder=subfolder,
             owner_override=owner,
+            single_commit=single_commit,
+            extra_files=extra_files,
         )
 
-        # Upload config.yml if execution_profile or advanced_options provided
-        if request.execution_profile or request.advanced_options:
-            config_content = build_config_yml(request.subfolder, request.execution_profile, request.advanced_options)
-            config_path = f"{subfolder}/config.yml"
-            try:
-                config_result = upload_file(
-                    owner=owner or result.get("owner", ""),
-                    repo=request.repo_name,
-                    path=config_path,
-                    content=config_content,
-                    message=f"Update config.yml for {request.subfolder}",
-                    branch=request.branch,
-                    token=token,
-                )
-                result["config_uploaded"] = True
-                result["config_path"] = config_path
-            except Exception as e:
-                print(f"[GitHub Upload] config.yml upload failed: {e}")
-                result["config_uploaded"] = False
+        if extra_files:
+            result["config_uploaded"] = "config.yml" in [u["file"] for u in result.get("uploaded", [])]
+            result["config_path"] = f"{subfolder}/config.yml"
 
         return result
     except Exception as e:
