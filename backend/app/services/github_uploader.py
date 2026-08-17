@@ -151,6 +151,197 @@ def upload_file(
     return resp.json()
 
 
+def _create_blob(owner: str, repo: str, content: str, token: Optional[str] = None) -> str:
+    """Create a blob and return its SHA."""
+    headers = _headers(token)
+    body = {
+        "content": base64.b64encode(content.encode("utf-8")).decode("utf-8"),
+        "encoding": "base64",
+    }
+    resp = requests.post(f"{GITHUB_API}/repos/{owner}/{repo}/git/blobs", headers=headers, json=body, timeout=30)
+    resp.raise_for_status()
+    return resp.json()["sha"]
+
+
+def _get_branch_head_sha(owner: str, repo: str, branch: str, token: Optional[str] = None) -> str:
+    """Get the SHA of the latest commit on a branch."""
+    headers = _headers(token)
+    resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}/git/refs/heads/{branch}", headers=headers, timeout=10)
+    resp.raise_for_status()
+    return resp.json()["object"]["sha"]
+
+
+def _get_existing_tree_entries(owner: str, repo: str, head_sha: str, token: Optional[str] = None) -> list:
+    """Get the full recursive tree of blobs for the current branch head."""
+    headers = _headers(token)
+    resp = requests.get(
+        f"{GITHUB_API}/repos/{owner}/{repo}/git/trees/{head_sha}?recursive=1",
+        headers=headers,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return [
+        entry
+        for entry in resp.json().get("tree", [])
+        if entry.get("type") == "blob"
+    ]
+
+
+def commit_files_separate(
+    owner: str,
+    repo: str,
+    files: list,
+    branch: str,
+    token: Optional[str] = None,
+) -> dict:
+    """
+    Commit each file with its own commit via the contents API (with backup of existing files).
+    files: list of dicts {path, content, message}
+    """
+    results = []
+    errors = []
+    backups = []
+
+    for f in files:
+        path = f["path"]
+        content = f["content"]
+        msg = f.get("message", f"Upload {path.split('/')[-1]} via AI Performance Script Generator")
+        try:
+            backup_path = backup_existing_file(owner, repo, path, branch, token)
+            if backup_path:
+                backups.append({"original": path, "backup": backup_path})
+            result = upload_file(owner, repo, path, content, msg, branch, token)
+            results.append({"file": path, "url": result.get("content", {}).get("html_url", "")})
+        except Exception as e:
+            errors.append({"file": path, "error": str(e)})
+
+    return {"uploaded": results, "backups": backups, "errors": errors}
+
+
+def commit_files_single(
+    owner: str,
+    repo: str,
+    files: list,
+    branch: str,
+    token: Optional[str] = None,
+    commit_message: str = "Upload JMX, data and config via AI Performance Script Generator",
+) -> dict:
+    """
+    Commit all files (plus backups of any existing ones) in a single commit
+    using the Git Data API. Preserves all untouched files already in the repo.
+    files: list of dicts {path, content}
+    """
+    results = []
+    backups = []
+    errors = []
+
+    try:
+        head_sha = _get_branch_head_sha(owner, repo, branch, token)
+    except Exception as e:
+        return {
+            "uploaded": results,
+            "backups": backups,
+            "errors": [{"file": branch, "error": f"Could not read branch head: {e}"}],
+        }
+
+    # Fetch the existing tree so untouched files are preserved
+    tree_entries = []
+    existing_paths = set()
+    try:
+        for entry in _get_existing_tree_entries(owner, repo, head_sha, token):
+            existing_paths.add(entry["path"])
+            tree_entries.append({
+                "path": entry["path"],
+                "mode": entry.get("mode", "100644"),
+                "type": "blob",
+                "sha": entry["sha"],
+            })
+    except Exception as e:
+        errors.append({"file": "(root)", "error": f"Could not read existing tree: {e}"})
+        return {
+            "uploaded": results,
+            "backups": backups,
+            "errors": errors + [{"file": "(root)", "error": "Aborted - cannot build tree."}],
+        }
+
+    # Build blobs for new files and backups of existing files
+    all_paths = {}
+    try:
+        for f in files:
+            path = f["path"]
+            all_paths[path] = _create_blob(owner, repo, f["content"], token)
+
+            if path in existing_paths:
+                old_content = get_file_content(owner, repo, path, token)
+                if old_content is not None:
+                    dir_part = "/".join(path.split("/")[:-1]) if "/" in path else ""
+                    base_name = path.split("/")[-1]
+                    name_part, ext_part = os.path.splitext(base_name)
+                    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+                    backup_name = f"{name_part}_{timestamp}{ext_part}"
+                    backup_path = f"{dir_part}/_backup/{backup_name}" if dir_part else f"_backup/{backup_name}"
+                    all_paths[backup_path] = _create_blob(owner, repo, old_content, token)
+                    backups.append({"original": path, "backup": backup_path})
+    except Exception as e:
+        errors.append({"file": "(blob)", "error": f"Blob creation failed: {e}"})
+        return {"uploaded": results, "backups": backups, "errors": errors}
+
+    # Override changed/new paths in the tree
+    for path, blob_sha in all_paths.items():
+        tree_entries = [e for e in tree_entries if e["path"] != path]
+        tree_entries.append({"path": path, "mode": "100644", "type": "blob", "sha": blob_sha})
+
+    # Create new tree
+    try:
+        headers = _headers(token)
+        resp = requests.post(
+            f"{GITHUB_API}/repos/{owner}/{repo}/git/trees",
+            headers=headers,
+            json={"base_tree": head_sha, "tree": tree_entries},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        new_tree_sha = resp.json()["sha"]
+    except Exception as e:
+        errors.append({"file": "(tree)", "error": f"Tree creation failed: {e}"})
+        return {"uploaded": results, "backups": backups, "errors": errors}
+
+    # Create commit
+    try:
+        resp = requests.post(
+            f"{GITHUB_API}/repos/{owner}/{repo}/git/commits",
+            headers=headers,
+            json={"message": commit_message, "tree": new_tree_sha, "parents": [head_sha]},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        new_commit_sha = resp.json()["sha"]
+    except Exception as e:
+        errors.append({"file": "(commit)", "error": f"Commit creation failed: {e}"})
+        return {"uploaded": results, "backups": backups, "errors": errors}
+
+    # Update the branch ref
+    try:
+        resp = requests.patch(
+            f"{GITHUB_API}/repos/{owner}/{repo}/git/refs/heads/{branch}",
+            headers=headers,
+            json={"sha": new_commit_sha, "force": False},
+            timeout=30,
+        )
+        resp.raise_for_status()
+    except Exception as e:
+        errors.append({"file": branch, "error": f"Branch ref update failed: {e}"})
+        return {"uploaded": results, "backups": backups, "errors": errors}
+
+    for f in files:
+        results.append({
+            "file": f["path"],
+            "url": f"https://github.com/{owner}/{repo}/blob/{branch}/{f['path']}",
+        })
+
+    return {"uploaded": results, "backups": backups, "errors": errors}
+
+
 def upload_jmx_to_github(
     repo_name: str,
     jmx_content: str,
@@ -161,6 +352,8 @@ def upload_jmx_to_github(
     token: Optional[str] = None,
     subfolder: str = "",
     owner_override: Optional[str] = None,
+    single_commit: bool = False,
+    extra_files: Optional[dict] = None,
 ) -> dict:
     """
     Upload JMX script and optional CSV data files to a GitHub repo.
@@ -175,6 +368,10 @@ def upload_jmx_to_github(
         token: Optional override for GitHub token
         subfolder: Optional subfolder path within the repo (e.g. "automated-usecases")
         owner_override: Optional owner override (defaults to authenticated user)
+        single_commit: If True, commit all files (JMX + CSVs + extra) in a single commit.
+                       If False (default), each file gets its own commit.
+        extra_files: Optional dict of {filename: content_string} for additional files
+                     (e.g. config.yml) committed alongside the JMX.
 
     Returns:
         dict with upload results
@@ -194,52 +391,65 @@ def upload_jmx_to_github(
         }
     print(f"[GitHub Upload] Repo exists. Uploading files...")
 
-    results = []
-    errors = []
-    backups = []
-
     # Build path with optional subfolder prefix
     prefix = f"{subfolder.strip('/')}/" if subfolder else ""
 
-    # Upload JMX file
-    jmx_path = f"{prefix}{jmx_filename}"
-    msg = commit_message or f"Upload {jmx_filename} via AI Performance Script Generator"
-    try:
-        # Backup existing file before overwriting
-        backup_path = backup_existing_file(owner, repo_name, jmx_path, branch, token)
-        if backup_path:
-            backups.append({"original": jmx_path, "backup": backup_path})
+    # Assemble the full list of files to upload
+    file_defs = []  # list of dicts {path, content, message}
+    file_defs.append({
+        "path": f"{prefix}{jmx_filename}",
+        "content": jmx_content,
+        "message": commit_message or f"Upload {jmx_filename} via AI Performance Script Generator",
+    })
 
-        print(f"[GitHub Upload] Uploading {jmx_path} ({len(jmx_content)} bytes)...")
-        result = upload_file(owner, repo_name, jmx_path, jmx_content, msg, branch, token)
-        url = result.get("content", {}).get("html_url", "")
-        print(f"[GitHub Upload] SUCCESS: {jmx_path} -> {url}")
-        results.append({"file": jmx_path, "url": url})
-    except Exception as e:
-        print(f"[GitHub Upload] FAILED: {jmx_path} -> {e}")
-        errors.append({"file": jmx_path, "error": str(e)})
-
-    # Upload CSV files under data/ folder within the subfolder
     if csv_files:
         for filename, content in csv_files.items():
-            data_path = f"{prefix}data/{filename}"
-            data_msg = f"Upload data file {filename} via AI Performance Script Generator"
-            try:
-                # Backup existing file before overwriting
-                backup_path = backup_existing_file(owner, repo_name, data_path, branch, token)
-                if backup_path:
-                    backups.append({"original": data_path, "backup": backup_path})
+            file_defs.append({
+                "path": f"{prefix}data/{filename}",
+                "content": content,
+                "message": f"Upload data file {filename} via AI Performance Script Generator",
+            })
 
-                result = upload_file(owner, repo_name, data_path, content, data_msg, branch, token)
-                results.append({"file": data_path, "url": result.get("content", {}).get("html_url", "")})
-            except Exception as e:
-                errors.append({"file": data_path, "error": str(e)})
+    if extra_files:
+        for filename, content in extra_files.items():
+            file_defs.append({
+                "path": f"{prefix}{filename}",
+                "content": content,
+                "message": f"Upload {filename} via AI Performance Script Generator",
+            })
+
+    if single_commit:
+        print(f"[GitHub Upload] Single-commit mode: committing {len(file_defs)} files together...")
+        commit_result = commit_files_single(
+            owner=owner,
+            repo=repo_name,
+            files=file_defs,
+            branch=branch,
+            token=token,
+            commit_message=commit_message or "Upload JMX, data and config via AI Performance Script Generator",
+        )
+        results = commit_result["uploaded"]
+        backups = commit_result["backups"]
+        errors = commit_result["errors"]
+    else:
+        print(f"[GitHub Upload] Separate-commit mode: committing {len(file_defs)} files individually...")
+        commit_result = commit_files_separate(
+            owner=owner,
+            repo=repo_name,
+            files=file_defs,
+            branch=branch,
+            token=token,
+        )
+        results = commit_result["uploaded"]
+        backups = commit_result["backups"]
+        errors = commit_result["errors"]
 
     return {
         "success": len(errors) == 0,
         "owner": owner,
         "repo": repo_name,
         "branch": branch,
+        "commit_mode": "single" if single_commit else "separate",
         "uploaded": results,
         "backups": backups,
         "errors": errors,
