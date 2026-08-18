@@ -1,10 +1,23 @@
 import os
 import base64
 import requests
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Optional
+from urllib.parse import quote
 
 GITHUB_API = "https://api.github.com"
+
+
+def _contents_url(owner: str, repo: str, path: str) -> str:
+    return f"{GITHUB_API}/repos/{owner}/{repo}/contents/{quote(path, safe='/')}"
+
+
+def _github_error(exc: Exception) -> str:
+    response = getattr(exc, "response", None)
+    if response is None:
+        return str(exc)
+    detail = response.text[:500] if getattr(response, "text", "") else str(exc)
+    return f"HTTP {response.status_code}: {detail}"
 
 
 def _get_token():
@@ -45,16 +58,23 @@ def check_repo_exists(owner: str, repo: str, token: Optional[str] = None) -> boo
 def get_file_sha(owner: str, repo: str, path: str, token: Optional[str] = None) -> Optional[str]:
     """Get the SHA of an existing file (needed for updates). Returns None if not found."""
     headers = _headers(token)
-    resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}/contents/{path}", headers=headers, timeout=10)
+    resp = requests.get(_contents_url(owner, repo, path), headers=headers, timeout=10)
     if resp.status_code == 200:
         return resp.json().get("sha")
     return None
 
 
-def get_file_content(owner: str, repo: str, path: str, token: Optional[str] = None) -> Optional[str]:
+def get_file_content(
+    owner: str,
+    repo: str,
+    path: str,
+    token: Optional[str] = None,
+    branch: Optional[str] = None,
+) -> Optional[str]:
     """Get the decoded content of an existing file. Returns None if not found."""
     headers = _headers(token)
-    resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}/contents/{path}", headers=headers, timeout=10)
+    params = {"ref": branch} if branch else None
+    resp = requests.get(_contents_url(owner, repo, path), headers=headers, params=params, timeout=10)
     if resp.status_code == 200:
         data = resp.json()
         return base64.b64decode(data["content"]).decode("utf-8")
@@ -87,7 +107,7 @@ def backup_existing_file(
 
     base_name = file_path.split("/")[-1]
     name_part, ext_part = os.path.splitext(base_name)
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     backup_name = f"{name_part}_{timestamp}{ext_part}"
 
     backup_path = f"{dir_part}/_backup/{backup_name}" if dir_part else f"_backup/{backup_name}"
@@ -247,58 +267,38 @@ def commit_files_single(
         head_sha = head["commit_sha"]
         base_tree_sha = head["tree_sha"]
     except Exception as e:
-        return {
-            "uploaded": results,
-            "backups": backups,
-            "errors": [{"file": branch, "error": f"Could not read branch head: {e}"}],
-        }
-
-    # Fetch the existing tree so untouched files are preserved
-    tree_entries = []
-    existing_paths = set()
-    try:
-        for entry in _get_existing_tree_entries(owner, repo, base_tree_sha, token):
-            existing_paths.add(entry["path"])
-            tree_entries.append({
-                "path": entry["path"],
-                "mode": entry.get("mode", "100644"),
-                "type": "blob",
-                "sha": entry["sha"],
-            })
-    except Exception as e:
-        errors.append({"file": "(root)", "error": f"Could not read existing tree: {e}"})
-        return {
-            "uploaded": results,
-            "backups": backups,
-            "errors": errors + [{"file": "(root)", "error": "Aborted - cannot build tree."}],
-        }
+        return {"uploaded": results, "backups": backups, "errors": [{"file": branch, "error": f"Could not read branch head: {_github_error(e)}"}]}
 
     # Build blobs for new files and backups of existing files
-    all_paths = {}
+    tree_entries = []
     try:
         for f in files:
             path = f["path"]
-            all_paths[path] = _create_blob(owner, repo, f["content"], token)
+            tree_entries.append({
+                "path": path,
+                "mode": "100644",
+                "type": "blob",
+                "sha": _create_blob(owner, repo, f["content"], token),
+            })
 
-            if path in existing_paths:
-                old_content = get_file_content(owner, repo, path, token)
-                if old_content is not None:
-                    dir_part = "/".join(path.split("/")[:-1]) if "/" in path else ""
-                    base_name = path.split("/")[-1]
-                    name_part, ext_part = os.path.splitext(base_name)
-                    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-                    backup_name = f"{name_part}_{timestamp}{ext_part}"
-                    backup_path = f"{dir_part}/_backup/{backup_name}" if dir_part else f"_backup/{backup_name}"
-                    all_paths[backup_path] = _create_blob(owner, repo, old_content, token)
-                    backups.append({"original": path, "backup": backup_path})
+            old_content = get_file_content(owner, repo, path, token, branch=branch)
+            if old_content is not None:
+                dir_part = "/".join(path.split("/")[:-1]) if "/" in path else ""
+                base_name = path.split("/")[-1]
+                name_part, ext_part = os.path.splitext(base_name)
+                timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+                backup_name = f"{name_part}_{timestamp}{ext_part}"
+                backup_path = f"{dir_part}/_backup/{backup_name}" if dir_part else f"_backup/{backup_name}"
+                tree_entries.append({
+                    "path": backup_path,
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": _create_blob(owner, repo, old_content, token),
+                })
+                backups.append({"original": path, "backup": backup_path})
     except Exception as e:
-        errors.append({"file": "(blob)", "error": f"Blob creation failed: {e}"})
+        errors.append({"file": "(blob)", "error": f"Blob creation failed: {_github_error(e)}"})
         return {"uploaded": results, "backups": backups, "errors": errors}
-
-    # Override changed/new paths in the tree
-    for path, blob_sha in all_paths.items():
-        tree_entries = [e for e in tree_entries if e["path"] != path]
-        tree_entries.append({"path": path, "mode": "100644", "type": "blob", "sha": blob_sha})
 
     # Create new tree
     try:
@@ -312,7 +312,7 @@ def commit_files_single(
         resp.raise_for_status()
         new_tree_sha = resp.json()["sha"]
     except Exception as e:
-        errors.append({"file": "(tree)", "error": f"Tree creation failed: {e}"})
+        errors.append({"file": "(tree)", "error": f"Tree creation failed: {_github_error(e)}"})
         return {"uploaded": results, "backups": backups, "errors": errors}
 
     # Create commit
@@ -326,7 +326,7 @@ def commit_files_single(
         resp.raise_for_status()
         new_commit_sha = resp.json()["sha"]
     except Exception as e:
-        errors.append({"file": "(commit)", "error": f"Commit creation failed: {e}"})
+        errors.append({"file": "(commit)", "error": f"Commit creation failed: {_github_error(e)}"})
         return {"uploaded": results, "backups": backups, "errors": errors}
 
     # Update the branch ref
@@ -339,7 +339,7 @@ def commit_files_single(
         )
         resp.raise_for_status()
     except Exception as e:
-        errors.append({"file": branch, "error": f"Branch ref update failed: {e}"})
+        errors.append({"file": branch, "error": f"Branch ref update failed: {_github_error(e)}"})
         return {"uploaded": results, "backups": backups, "errors": errors}
 
     for f in files:
