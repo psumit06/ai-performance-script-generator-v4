@@ -73,7 +73,7 @@ def upload_to_github(request: GitHubUploadRequest):
             config_content = build_config_yml(request.subfolder, request.execution_profile, request.advanced_options)
             extra_files = {"config.yml": config_content}
 
-        single_commit = os.getenv("GITHUB_UPLOAD_SINGLE_COMMIT", "false").lower() == "true"
+        single_commit = os.getenv("GITHUB_UPLOAD_SINGLE_COMMIT", "true").lower() == "true"
 
         result = upload_jmx_to_github(
             repo_name=request.repo_name,
@@ -90,7 +90,7 @@ def upload_to_github(request: GitHubUploadRequest):
         )
 
         if extra_files:
-            result["config_uploaded"] = "config.yml" in [u["file"] for u in result.get("uploaded", [])]
+            result["config_uploaded"] = f"{subfolder}/config.yml" in [u["file"] for u in result.get("uploaded", [])]
             result["config_path"] = f"{subfolder}/config.yml"
 
         return result
