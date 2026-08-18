@@ -163,12 +163,19 @@ def _create_blob(owner: str, repo: str, content: str, token: Optional[str] = Non
     return resp.json()["sha"]
 
 
-def _get_branch_head_sha(owner: str, repo: str, branch: str, token: Optional[str] = None) -> str:
-    """Get the SHA of the latest commit on a branch."""
+def _get_branch_head(owner: str, repo: str, branch: str, token: Optional[str] = None) -> dict:
+    """Get the latest commit SHA and tree SHA on a branch."""
     headers = _headers(token)
     resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}/git/refs/heads/{branch}", headers=headers, timeout=10)
     resp.raise_for_status()
-    return resp.json()["object"]["sha"]
+    commit_sha = resp.json()["object"]["sha"]
+
+    resp = requests.get(f"{GITHUB_API}/repos/{owner}/{repo}/git/commits/{commit_sha}", headers=headers, timeout=10)
+    resp.raise_for_status()
+    return {
+        "commit_sha": commit_sha,
+        "tree_sha": resp.json()["tree"]["sha"],
+    }
 
 
 def _get_existing_tree_entries(owner: str, repo: str, head_sha: str, token: Optional[str] = None) -> list:
@@ -236,7 +243,9 @@ def commit_files_single(
     errors = []
 
     try:
-        head_sha = _get_branch_head_sha(owner, repo, branch, token)
+        head = _get_branch_head(owner, repo, branch, token)
+        head_sha = head["commit_sha"]
+        base_tree_sha = head["tree_sha"]
     except Exception as e:
         return {
             "uploaded": results,
@@ -248,7 +257,7 @@ def commit_files_single(
     tree_entries = []
     existing_paths = set()
     try:
-        for entry in _get_existing_tree_entries(owner, repo, head_sha, token):
+        for entry in _get_existing_tree_entries(owner, repo, base_tree_sha, token):
             existing_paths.add(entry["path"])
             tree_entries.append({
                 "path": entry["path"],
@@ -297,7 +306,7 @@ def commit_files_single(
         resp = requests.post(
             f"{GITHUB_API}/repos/{owner}/{repo}/git/trees",
             headers=headers,
-            json={"base_tree": head_sha, "tree": tree_entries},
+            json={"base_tree": base_tree_sha, "tree": tree_entries},
             timeout=30,
         )
         resp.raise_for_status()
@@ -352,7 +361,7 @@ def upload_jmx_to_github(
     token: Optional[str] = None,
     subfolder: str = "",
     owner_override: Optional[str] = None,
-    single_commit: bool = False,
+    single_commit: bool = True,
     extra_files: Optional[dict] = None,
 ) -> dict:
     """
@@ -368,8 +377,8 @@ def upload_jmx_to_github(
         token: Optional override for GitHub token
         subfolder: Optional subfolder path within the repo (e.g. "automated-usecases")
         owner_override: Optional owner override (defaults to authenticated user)
-        single_commit: If True, commit all files (JMX + CSVs + extra) in a single commit.
-                       If False (default), each file gets its own commit.
+        single_commit: If True (default), commit all files (JMX + CSVs + extra)
+                       in a single commit. If False, each file gets its own commit.
         extra_files: Optional dict of {filename: content_string} for additional files
                      (e.g. config.yml) committed alongside the JMX.
 
